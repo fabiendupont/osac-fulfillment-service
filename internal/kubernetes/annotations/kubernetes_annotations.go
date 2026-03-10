@@ -13,20 +13,5 @@ language governing permissions and limitations under the License.
 
 package annotations
 
-import (
-	"fmt"
-
-	"github.com/osac-project/fulfillment-service/internal/kubernetes/gvks"
-)
-
-// ComputeInstanceTenant is the annotation where the fulfillment API will write the tenant of the compute instance.
-var ComputeInstanceTenant = fmt.Sprintf("%s/tenant", gvks.ComputeInstance.Group)
-
-// SubnetTenant is the annotation where the fulfillment API will write the tenant of the subnet.
-var SubnetTenant = fmt.Sprintf("%s/tenant", gvks.Subnet.Group)
-
-// VirtualNetworkTenant is the annotation where the fulfillment API will write the tenant of the virtual network.
-var VirtualNetworkTenant = fmt.Sprintf("%s/tenant", gvks.VirtualNetwork.Group)
-
-// NetworkClassTenant is the annotation where the fulfillment API will write the tenant of the network class.
-var NetworkClassTenant = fmt.Sprintf("%s/tenant", gvks.NetworkClass.Group)
+// Tenant is the annotation key for tenant information on all OSAC resources.
+const Tenant = "osac.openshift.io/tenant"

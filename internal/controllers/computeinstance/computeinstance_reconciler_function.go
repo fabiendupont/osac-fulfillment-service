@@ -201,7 +201,7 @@ func (t *task) update(ctx context.Context) error {
 			labels.ComputeInstanceUuid: t.computeInstance.GetId(),
 		})
 		object.SetAnnotations(map[string]string{
-			annotations.ComputeInstanceTenant: t.computeInstance.GetMetadata().GetTenants()[0],
+			annotations.Tenant: t.computeInstance.GetMetadata().GetTenants()[0],
 		})
 		err = unstructured.SetNestedField(object.Object, spec, "spec")
 		if err != nil {

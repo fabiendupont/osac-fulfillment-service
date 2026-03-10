@@ -179,7 +179,7 @@ func (t *task) update(ctx context.Context) error {
 			labels.NetworkClassUuid: t.networkClass.GetId(),
 		})
 		object.SetAnnotations(map[string]string{
-			annotations.NetworkClassTenant: t.networkClass.GetMetadata().GetTenants()[0],
+			annotations.Tenant: t.networkClass.GetMetadata().GetTenants()[0],
 		})
 		err = unstructured.SetNestedField(object.Object, spec, "spec")
 		if err != nil {
