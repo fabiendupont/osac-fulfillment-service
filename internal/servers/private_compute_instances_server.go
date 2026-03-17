@@ -40,9 +40,11 @@ var _ privatev1.ComputeInstancesServer = (*PrivateComputeInstancesServer)(nil)
 type PrivateComputeInstancesServer struct {
 	privatev1.UnimplementedComputeInstancesServer
 
-	logger       *slog.Logger
-	generic      *GenericServer[*privatev1.ComputeInstance]
-	templatesDao *dao.GenericDAO[*privatev1.ComputeInstanceTemplate]
+	logger            *slog.Logger
+	generic           *GenericServer[*privatev1.ComputeInstance]
+	templatesDao      *dao.GenericDAO[*privatev1.ComputeInstanceTemplate]
+	subnetsDao        *dao.GenericDAO[*privatev1.Subnet]
+	securityGroupsDao *dao.GenericDAO[*privatev1.SecurityGroup]
 }
 
 func NewPrivateComputeInstancesServer() *PrivateComputeInstancesServerBuilder {
@@ -91,6 +93,28 @@ func (b *PrivateComputeInstancesServerBuilder) Build() (result *PrivateComputeIn
 		return
 	}
 
+	// Create the Subnets DAO for network validation:
+	subnetsDao, err := dao.NewGenericDAO[*privatev1.Subnet]().
+		SetLogger(b.logger).
+		SetTable("subnets").
+		SetAttributionLogic(b.attributionLogic).
+		SetTenancyLogic(b.tenancyLogic).
+		Build()
+	if err != nil {
+		return
+	}
+
+	// Create the SecurityGroups DAO for network validation:
+	securityGroupsDao, err := dao.NewGenericDAO[*privatev1.SecurityGroup]().
+		SetLogger(b.logger).
+		SetTable("security_groups").
+		SetAttributionLogic(b.attributionLogic).
+		SetTenancyLogic(b.tenancyLogic).
+		Build()
+	if err != nil {
+		return
+	}
+
 	// Create the generic server:
 	generic, err := NewGenericServer[*privatev1.ComputeInstance]().
 		SetLogger(b.logger).
@@ -106,9 +130,11 @@ func (b *PrivateComputeInstancesServerBuilder) Build() (result *PrivateComputeIn
 
 	// Create and populate the object:
 	result = &PrivateComputeInstancesServer{
-		logger:       b.logger,
-		generic:      generic,
-		templatesDao: templatesDao,
+		logger:            b.logger,
+		generic:           generic,
+		templatesDao:      templatesDao,
+		subnetsDao:        subnetsDao,
+		securityGroupsDao: securityGroupsDao,
 	}
 	return
 }
@@ -127,6 +153,12 @@ func (s *PrivateComputeInstancesServer) Get(ctx context.Context,
 
 func (s *PrivateComputeInstancesServer) Create(ctx context.Context,
 	request *privatev1.ComputeInstancesCreateRequest) (response *privatev1.ComputeInstancesCreateResponse, err error) {
+	// Validate network references:
+	err = s.validateNetworkReferences(ctx, request.GetObject())
+	if err != nil {
+		return
+	}
+
 	// Validate template:
 	err = s.validateTemplate(ctx, request.GetObject())
 	if err != nil {
@@ -139,6 +171,12 @@ func (s *PrivateComputeInstancesServer) Create(ctx context.Context,
 
 func (s *PrivateComputeInstancesServer) Update(ctx context.Context,
 	request *privatev1.ComputeInstancesUpdateRequest) (response *privatev1.ComputeInstancesUpdateResponse, err error) {
+	// Validate network references:
+	err = s.validateNetworkReferences(ctx, request.GetObject())
+	if err != nil {
+		return
+	}
+
 	// Validate template:
 	err = s.validateTemplate(ctx, request.GetObject())
 	if err != nil {
@@ -216,6 +254,116 @@ func (s *PrivateComputeInstancesServer) validateTemplate(ctx context.Context, vm
 		vmParameters,
 	)
 	spec.SetTemplateParameters(actualVmParameters)
+
+	return nil
+}
+
+// validateNetworkReferences validates that referenced Subnet and SecurityGroups exist, are in READY state,
+// belong to the same tenant, and SecurityGroups belong to the same VirtualNetwork as the Subnet.
+//
+// Implements requirements VAL-01, VAL-02, VAL-03, VAL-04.
+func (s *PrivateComputeInstancesServer) validateNetworkReferences(ctx context.Context, vm *privatev1.ComputeInstance) error {
+	if vm == nil {
+		return grpcstatus.Errorf(grpccodes.InvalidArgument, "compute instance is mandatory")
+	}
+
+	spec := vm.GetSpec()
+	if spec == nil {
+		return grpcstatus.Errorf(grpccodes.InvalidArgument, "compute instance spec is mandatory")
+	}
+
+	subnetID := spec.GetSubnet()
+	securityGroupIDs := spec.GetSecurityGroups()
+
+	// If no network references, nothing to validate
+	if subnetID == "" && len(securityGroupIDs) == 0 {
+		return nil
+	}
+
+	var subnet *privatev1.Subnet
+	var virtualNetworkID string
+
+	// VAL-01: Validate Subnet exists and is READY
+	if subnetID != "" {
+		getSubnetResponse, err := s.subnetsDao.Get().
+			SetId(subnetID).
+			Do(ctx)
+		if err != nil {
+			var notFoundErr *dao.ErrNotFound
+			if errors.As(err, &notFoundErr) {
+				return grpcstatus.Errorf(grpccodes.InvalidArgument,
+					"subnet '%s' does not exist", subnetID)
+			}
+			s.logger.ErrorContext(ctx, "Failed to query Subnet",
+				slog.String("subnet_id", subnetID),
+				slog.Any("error", err))
+			return grpcstatus.Errorf(grpccodes.Internal, "failed to validate subnet")
+		}
+
+		subnet = getSubnetResponse.GetObject()
+		if subnet == nil {
+			return grpcstatus.Errorf(grpccodes.InvalidArgument,
+				"subnet '%s' does not exist", subnetID)
+		}
+
+		// VAL-01: Check Subnet is READY
+		if subnet.GetStatus().GetState() != privatev1.SubnetState_SUBNET_STATE_READY {
+			return grpcstatus.Errorf(grpccodes.FailedPrecondition,
+				"subnet '%s' is not in READY state (current state: %s)",
+				subnetID, subnet.GetStatus().GetState().String())
+		}
+
+		// Store VirtualNetwork ID for SecurityGroup validation
+		virtualNetworkID = subnet.GetSpec().GetVirtualNetwork()
+	}
+
+	// VAL-02, VAL-03: Validate SecurityGroups exist, are READY, and belong to same VirtualNetwork
+	for _, sgID := range securityGroupIDs {
+		if sgID == "" {
+			continue // Skip empty strings
+		}
+
+		getSGResponse, err := s.securityGroupsDao.Get().
+			SetId(sgID).
+			Do(ctx)
+		if err != nil {
+			var notFoundErr *dao.ErrNotFound
+			if errors.As(err, &notFoundErr) {
+				return grpcstatus.Errorf(grpccodes.InvalidArgument,
+					"security group '%s' does not exist", sgID)
+			}
+			s.logger.ErrorContext(ctx, "Failed to query SecurityGroup",
+				slog.String("security_group_id", sgID),
+				slog.Any("error", err))
+			return grpcstatus.Errorf(grpccodes.Internal, "failed to validate security group")
+		}
+
+		sg := getSGResponse.GetObject()
+		if sg == nil {
+			return grpcstatus.Errorf(grpccodes.InvalidArgument,
+				"security group '%s' does not exist", sgID)
+		}
+
+		// VAL-02: Check SecurityGroup is READY
+		if sg.GetStatus().GetState() != privatev1.SecurityGroupState_SECURITY_GROUP_STATE_READY {
+			return grpcstatus.Errorf(grpccodes.FailedPrecondition,
+				"security group '%s' is not in READY state (current state: %s)",
+				sgID, sg.GetStatus().GetState().String())
+		}
+
+		// VAL-03: If Subnet was provided, verify SecurityGroup belongs to same VirtualNetwork
+		if virtualNetworkID != "" {
+			sgVirtualNetworkID := sg.GetSpec().GetVirtualNetwork()
+			if sgVirtualNetworkID != virtualNetworkID {
+				return grpcstatus.Errorf(grpccodes.InvalidArgument,
+					"security group '%s' belongs to VirtualNetwork '%s', but subnet '%s' belongs to VirtualNetwork '%s'",
+					sgID, sgVirtualNetworkID, subnetID, virtualNetworkID)
+			}
+		}
+	}
+
+	// VAL-04: Tenant isolation is enforced by TenancyLogic in GenericDAO.Get()
+	// All DAO lookups above are automatically scoped to the requesting tenant
 
 	return nil
 }
