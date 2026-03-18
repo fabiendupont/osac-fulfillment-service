@@ -140,6 +140,10 @@ var _ = Describe("Reflection helper", func() {
 				"host",
 				"hostclass",
 				"hostpool",
+				"networkclass",
+				"securitygroup",
+				"subnet",
+				"virtualnetwork",
 			))
 		})
 
@@ -152,6 +156,10 @@ var _ = Describe("Reflection helper", func() {
 				"hostclasses",
 				"hostpools",
 				"hosts",
+				"networkclasses",
+				"securitygroups",
+				"subnets",
+				"virtualnetworks",
 			))
 		})
 
