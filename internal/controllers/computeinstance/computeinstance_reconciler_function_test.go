@@ -44,6 +44,7 @@ import (
 var _ = Describe("buildSpec", func() {
 	Describe("RestartRequestedAt field", func() {
 		It("Includes restartRequestedAt in spec map when present", func() {
+			ctx := context.Background()
 			requestedAt := time.Date(2026, 1, 28, 13, 27, 0, 0, time.UTC)
 			cpuCores, err := anypb.New(wrapperspb.String("2"))
 			Expect(err).ToNot(HaveOccurred())
@@ -51,6 +52,7 @@ var _ = Describe("buildSpec", func() {
 			Expect(err).ToNot(HaveOccurred())
 			template := "osac.templates.ocp_virt_vm"
 			task := &task{
+				r: &function{logger: logger},
 				computeInstance: privatev1.ComputeInstance_builder{
 					Id: "test-instance-123",
 					Spec: privatev1.ComputeInstanceSpec_builder{
@@ -65,7 +67,7 @@ var _ = Describe("buildSpec", func() {
 			}
 
 			// Call the actual buildSpec function
-			spec, err := task.buildSpec()
+			spec, err := task.buildSpec(ctx)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Verify restartRequestedAt was added with correct format
@@ -77,8 +79,10 @@ var _ = Describe("buildSpec", func() {
 		})
 
 		It("Includes explicit fields in spec map when present", func() {
+			ctx := context.Background()
 			template := "osac.templates.ocp_virt_vm"
 			task := &task{
+				r: &function{logger: logger},
 				computeInstance: privatev1.ComputeInstance_builder{
 					Id: "test-explicit-fields",
 					Spec: privatev1.ComputeInstanceSpec_builder{
@@ -107,7 +111,7 @@ var _ = Describe("buildSpec", func() {
 				userDataSecretName: "test-explicit-fields-user-data",
 			}
 
-			spec, err := task.buildSpec()
+			spec, err := task.buildSpec(ctx)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(spec["cores"]).To(Equal(int64(4)))
@@ -137,8 +141,10 @@ var _ = Describe("buildSpec", func() {
 		})
 
 		It("Excludes explicit fields from spec map when not set", func() {
+			ctx := context.Background()
 			template := "osac.templates.ocp_virt_vm"
 			task := &task{
+				r: &function{logger: logger},
 				computeInstance: privatev1.ComputeInstance_builder{
 					Id: "test-no-explicit-fields",
 					Spec: privatev1.ComputeInstanceSpec_builder{
@@ -147,7 +153,7 @@ var _ = Describe("buildSpec", func() {
 				}.Build(),
 			}
 
-			spec, err := task.buildSpec()
+			spec, err := task.buildSpec(ctx)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(spec).ToNot(HaveKey("cores"))
@@ -161,12 +167,14 @@ var _ = Describe("buildSpec", func() {
 		})
 
 		It("Excludes restartRequestedAt from spec map when not set", func() {
+			ctx := context.Background()
 			cpuCores, err := anypb.New(wrapperspb.String("1"))
 			Expect(err).ToNot(HaveOccurred())
 			memory, err := anypb.New(wrapperspb.String("2Gi"))
 			Expect(err).ToNot(HaveOccurred())
 			template := "osac.templates.ocp_virt_vm"
 			task := &task{
+				r: &function{logger: logger},
 				computeInstance: privatev1.ComputeInstance_builder{
 					Id: "test-instance-456",
 					Spec: privatev1.ComputeInstanceSpec_builder{
@@ -181,7 +189,7 @@ var _ = Describe("buildSpec", func() {
 			}
 
 			// Call the actual buildSpec function
-			spec, err := task.buildSpec()
+			spec, err := task.buildSpec(ctx)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Verify restartRequestedAt was NOT added
@@ -394,6 +402,277 @@ var _ = Describe("delete", func() {
 		err := t.delete(ctx)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(hasFinalizer(t.computeInstance)).To(BeFalse())
+	})
+})
+
+var _ = Describe("getSubnetCR", func() {
+	const (
+		ciID         = "test-ci-subnet"
+		subnetID     = "subnet-abc-123"
+		hubNamespace = "test-ns"
+		subnetCRName = "subnet-xyz"
+	)
+
+	var (
+		ctx  context.Context
+		ctrl *gomock.Controller
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		ctrl = gomock.NewController(GinkgoT())
+		DeferCleanup(ctrl.Finish)
+	})
+
+	It("should return Subnet CR when one exists with matching label", func() {
+		subnetCR := &unstructured.Unstructured{}
+		subnetCR.SetGroupVersionKind(gvks.Subnet)
+		subnetCR.SetNamespace(hubNamespace)
+		subnetCR.SetName(subnetCRName)
+		subnetCR.SetLabels(map[string]string{
+			labels.SubnetUuid: subnetID,
+		})
+
+		scheme := runtime.NewScheme()
+		scheme.AddKnownTypeWithName(
+			schema.GroupVersionKind{Group: gvks.Subnet.Group, Version: gvks.Subnet.Version, Kind: gvks.Subnet.Kind + "List"},
+			&unstructured.UnstructuredList{},
+		)
+
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(subnetCR).
+			Build()
+
+		t := &task{
+			r:            &function{logger: logger},
+			hubNamespace: hubNamespace,
+			hubClient:    fakeClient,
+		}
+
+		result, err := t.getSubnetCR(ctx, subnetID)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result).ToNot(BeNil())
+		Expect(result.GetName()).To(Equal(subnetCRName))
+	})
+
+	It("should return nil when no Subnet CR exists", func() {
+		scheme := runtime.NewScheme()
+		scheme.AddKnownTypeWithName(
+			schema.GroupVersionKind{Group: gvks.Subnet.Group, Version: gvks.Subnet.Version, Kind: gvks.Subnet.Kind + "List"},
+			&unstructured.UnstructuredList{},
+		)
+
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			Build()
+
+		t := &task{
+			r:            &function{logger: logger},
+			hubNamespace: hubNamespace,
+			hubClient:    fakeClient,
+		}
+
+		result, err := t.getSubnetCR(ctx, subnetID)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result).To(BeNil())
+	})
+
+	It("should return error when multiple Subnet CRs match", func() {
+		subnetCR1 := &unstructured.Unstructured{}
+		subnetCR1.SetGroupVersionKind(gvks.Subnet)
+		subnetCR1.SetNamespace(hubNamespace)
+		subnetCR1.SetName("subnet-1")
+		subnetCR1.SetLabels(map[string]string{
+			labels.SubnetUuid: subnetID,
+		})
+
+		subnetCR2 := &unstructured.Unstructured{}
+		subnetCR2.SetGroupVersionKind(gvks.Subnet)
+		subnetCR2.SetNamespace(hubNamespace)
+		subnetCR2.SetName("subnet-2")
+		subnetCR2.SetLabels(map[string]string{
+			labels.SubnetUuid: subnetID,
+		})
+
+		scheme := runtime.NewScheme()
+		scheme.AddKnownTypeWithName(
+			schema.GroupVersionKind{Group: gvks.Subnet.Group, Version: gvks.Subnet.Version, Kind: gvks.Subnet.Kind + "List"},
+			&unstructured.UnstructuredList{},
+		)
+
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(subnetCR1, subnetCR2).
+			Build()
+
+		t := &task{
+			r:            &function{logger: logger},
+			hubNamespace: hubNamespace,
+			hubClient:    fakeClient,
+		}
+
+		result, err := t.getSubnetCR(ctx, subnetID)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("expected at most one subnet"))
+		Expect(result).To(BeNil())
+	})
+})
+
+var _ = Describe("buildSpec with subnetRef", func() {
+	const (
+		hubNamespace = "test-ns"
+		subnetID     = "subnet-abc-123"
+		subnetCRName = "subnet-xyz"
+	)
+
+	var (
+		ctx context.Context
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+	})
+
+	It("should set subnetRef when subnet field present and Subnet CR exists", func() {
+		subnetCR := &unstructured.Unstructured{}
+		subnetCR.SetGroupVersionKind(gvks.Subnet)
+		subnetCR.SetNamespace(hubNamespace)
+		subnetCR.SetName(subnetCRName)
+		subnetCR.SetLabels(map[string]string{
+			labels.SubnetUuid: subnetID,
+		})
+
+		scheme := runtime.NewScheme()
+		scheme.AddKnownTypeWithName(
+			schema.GroupVersionKind{Group: gvks.Subnet.Group, Version: gvks.Subnet.Version, Kind: gvks.Subnet.Kind + "List"},
+			&unstructured.UnstructuredList{},
+		)
+
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(subnetCR).
+			Build()
+
+		template := "osac.templates.ocp_virt_vm"
+		t := &task{
+			r: &function{logger: logger},
+			computeInstance: privatev1.ComputeInstance_builder{
+				Id: "test-instance",
+				Spec: privatev1.ComputeInstanceSpec_builder{
+					Template: template,
+					Subnet:   proto.String(subnetID),
+				}.Build(),
+			}.Build(),
+			hubNamespace: hubNamespace,
+			hubClient:    fakeClient,
+		}
+
+		spec, err := t.buildSpec(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(spec).To(HaveKey("subnetRef"))
+		Expect(spec["subnetRef"]).To(Equal(subnetCRName))
+	})
+
+	It("should not set subnetRef when no subnet field", func() {
+		scheme := runtime.NewScheme()
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			Build()
+
+		template := "osac.templates.ocp_virt_vm"
+		t := &task{
+			r: &function{logger: logger},
+			computeInstance: privatev1.ComputeInstance_builder{
+				Id: "test-instance",
+				Spec: privatev1.ComputeInstanceSpec_builder{
+					Template: template,
+				}.Build(),
+			}.Build(),
+			hubNamespace: hubNamespace,
+			hubClient:    fakeClient,
+		}
+
+		spec, err := t.buildSpec(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(spec).ToNot(HaveKey("subnetRef"))
+	})
+
+	It("should not set subnetRef when Subnet CR not found", func() {
+		scheme := runtime.NewScheme()
+		scheme.AddKnownTypeWithName(
+			schema.GroupVersionKind{Group: gvks.Subnet.Group, Version: gvks.Subnet.Version, Kind: gvks.Subnet.Kind + "List"},
+			&unstructured.UnstructuredList{},
+		)
+
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			Build()
+
+		template := "osac.templates.ocp_virt_vm"
+		t := &task{
+			r: &function{logger: logger},
+			computeInstance: privatev1.ComputeInstance_builder{
+				Id: "test-instance",
+				Spec: privatev1.ComputeInstanceSpec_builder{
+					Template: template,
+					Subnet:   proto.String(subnetID),
+				}.Build(),
+			}.Build(),
+			hubNamespace: hubNamespace,
+			hubClient:    fakeClient,
+		}
+
+		spec, err := t.buildSpec(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(spec).ToNot(HaveKey("subnetRef"))
+	})
+
+	It("should not set subnetRef when multiple Subnet CRs exist", func() {
+		subnetCR1 := &unstructured.Unstructured{}
+		subnetCR1.SetGroupVersionKind(gvks.Subnet)
+		subnetCR1.SetNamespace(hubNamespace)
+		subnetCR1.SetName("subnet-1")
+		subnetCR1.SetLabels(map[string]string{
+			labels.SubnetUuid: subnetID,
+		})
+
+		subnetCR2 := &unstructured.Unstructured{}
+		subnetCR2.SetGroupVersionKind(gvks.Subnet)
+		subnetCR2.SetNamespace(hubNamespace)
+		subnetCR2.SetName("subnet-2")
+		subnetCR2.SetLabels(map[string]string{
+			labels.SubnetUuid: subnetID,
+		})
+
+		scheme := runtime.NewScheme()
+		scheme.AddKnownTypeWithName(
+			schema.GroupVersionKind{Group: gvks.Subnet.Group, Version: gvks.Subnet.Version, Kind: gvks.Subnet.Kind + "List"},
+			&unstructured.UnstructuredList{},
+		)
+
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(subnetCR1, subnetCR2).
+			Build()
+
+		template := "osac.templates.ocp_virt_vm"
+		t := &task{
+			r: &function{logger: logger},
+			computeInstance: privatev1.ComputeInstance_builder{
+				Id: "test-instance",
+				Spec: privatev1.ComputeInstanceSpec_builder{
+					Template: template,
+					Subnet:   proto.String(subnetID),
+				}.Build(),
+			}.Build(),
+			hubNamespace: hubNamespace,
+			hubClient:    fakeClient,
+		}
+
+		spec, err := t.buildSpec(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(spec).ToNot(HaveKey("subnetRef"))
 	})
 })
 

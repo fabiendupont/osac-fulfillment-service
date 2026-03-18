@@ -20,6 +20,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	grpccodes "google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
@@ -70,9 +72,114 @@ var _ = Describe("Private compute instances server", func() {
 			ctx,
 			"compute_instance_templates",
 			"compute_instances",
+			"subnets",
+			"security_groups",
+			"virtual_networks",
+			"network_classes",
 		)
 		Expect(err).ToNot(HaveOccurred())
 	})
+
+	// Helper function to create a NetworkClass for test setup
+	createTestNetworkClass := func(ctx context.Context) *privatev1.NetworkClass {
+		ncDao, err := dao.NewGenericDAO[*privatev1.NetworkClass]().
+			SetLogger(logger).
+			SetTable("network_classes").
+			SetAttributionLogic(attribution).
+			SetTenancyLogic(tenancy).
+			Build()
+		Expect(err).ToNot(HaveOccurred())
+
+		nc := privatev1.NetworkClass_builder{
+			ImplementationStrategy: "test-strategy",
+			Capabilities: privatev1.NetworkClassCapabilities_builder{
+				SupportsIpv4:      true,
+				SupportsIpv6:      true,
+				SupportsDualStack: true,
+			}.Build(),
+			Status: privatev1.NetworkClassStatus_builder{
+				State: privatev1.NetworkClassState_NETWORK_CLASS_STATE_READY,
+			}.Build(),
+		}.Build()
+
+		response, err := ncDao.Create().SetObject(nc).Do(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		return response.GetObject()
+	}
+
+	// Helper function to create a VirtualNetwork for test setup
+	createTestVirtualNetwork := func(ctx context.Context, networkClassID string) *privatev1.VirtualNetwork {
+		vnDao, err := dao.NewGenericDAO[*privatev1.VirtualNetwork]().
+			SetLogger(logger).
+			SetTable("virtual_networks").
+			SetAttributionLogic(attribution).
+			SetTenancyLogic(tenancy).
+			Build()
+		Expect(err).ToNot(HaveOccurred())
+
+		vn := privatev1.VirtualNetwork_builder{
+			Spec: privatev1.VirtualNetworkSpec_builder{
+				Ipv4Cidr:     proto.String("10.0.0.0/16"),
+				NetworkClass: networkClassID,
+			}.Build(),
+			Status: privatev1.VirtualNetworkStatus_builder{
+				State: privatev1.VirtualNetworkState_VIRTUAL_NETWORK_STATE_READY,
+			}.Build(),
+		}.Build()
+
+		response, err := vnDao.Create().SetObject(vn).Do(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		return response.GetObject()
+	}
+
+	// Helper function to create a Subnet with specified state
+	createTestSubnet := func(ctx context.Context, vnID string, state privatev1.SubnetState) *privatev1.Subnet {
+		subnetDao, err := dao.NewGenericDAO[*privatev1.Subnet]().
+			SetLogger(logger).
+			SetTable("subnets").
+			SetAttributionLogic(attribution).
+			SetTenancyLogic(tenancy).
+			Build()
+		Expect(err).ToNot(HaveOccurred())
+
+		subnet := privatev1.Subnet_builder{
+			Spec: privatev1.SubnetSpec_builder{
+				VirtualNetwork: vnID,
+				Ipv4Cidr:       proto.String("10.0.1.0/24"),
+			}.Build(),
+			Status: privatev1.SubnetStatus_builder{
+				State: state,
+			}.Build(),
+		}.Build()
+
+		response, err := subnetDao.Create().SetObject(subnet).Do(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		return response.GetObject()
+	}
+
+	// Helper function to create a SecurityGroup with specified state
+	createTestSecurityGroup := func(ctx context.Context, vnID string, state privatev1.SecurityGroupState) *privatev1.SecurityGroup {
+		sgDao, err := dao.NewGenericDAO[*privatev1.SecurityGroup]().
+			SetLogger(logger).
+			SetTable("security_groups").
+			SetAttributionLogic(attribution).
+			SetTenancyLogic(tenancy).
+			Build()
+		Expect(err).ToNot(HaveOccurred())
+
+		sg := privatev1.SecurityGroup_builder{
+			Spec: privatev1.SecurityGroupSpec_builder{
+				VirtualNetwork: vnID,
+			}.Build(),
+			Status: privatev1.SecurityGroupStatus_builder{
+				State: state,
+			}.Build(),
+		}.Build()
+
+		response, err := sgDao.Create().SetObject(sg).Do(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		return response.GetObject()
+	}
 
 	Describe("Builder", func() {
 		It("Creates server with logger", func() {
@@ -519,6 +626,262 @@ var _ = Describe("Private compute instances server", func() {
 			}.Build())
 			Expect(err).To(HaveOccurred())
 			Expect(response).To(BeNil())
+		})
+	})
+
+	Describe("Network validation", func() {
+		var (
+			server         *PrivateComputeInstancesServer
+			template       *privatev1.ComputeInstanceTemplate
+			networkClass   *privatev1.NetworkClass
+			virtualNetwork *privatev1.VirtualNetwork
+		)
+
+		BeforeEach(func() {
+			var err error
+
+			// Create network resources
+			networkClass = createTestNetworkClass(ctx)
+			virtualNetwork = createTestVirtualNetwork(ctx, networkClass.GetId())
+
+			// Create test template
+			templatesDao, err := dao.NewGenericDAO[*privatev1.ComputeInstanceTemplate]().
+				SetLogger(logger).
+				SetTable("compute_instance_templates").
+				SetAttributionLogic(attribution).
+				SetTenancyLogic(tenancy).
+				Build()
+			Expect(err).ToNot(HaveOccurred())
+
+			cpuDefault, err := anypb.New(wrapperspb.Int32(1))
+			Expect(err).ToNot(HaveOccurred())
+			memoryDefault, err := anypb.New(wrapperspb.Int32(2))
+			Expect(err).ToNot(HaveOccurred())
+
+			template = privatev1.ComputeInstanceTemplate_builder{
+				Id:          "test-template",
+				Title:       "Test Template",
+				Description: "Test template for network validation",
+				Parameters: []*privatev1.ComputeInstanceTemplateParameterDefinition{
+					{
+						Name:        "cpu_count",
+						Title:       "CPU Count",
+						Description: "Number of CPU cores",
+						Required:    false,
+						Type:        "type.googleapis.com/google.protobuf.Int32Value",
+						Default:     cpuDefault,
+					},
+					{
+						Name:        "memory_gb",
+						Title:       "Memory (GB)",
+						Description: "Amount of memory in GB",
+						Required:    false,
+						Type:        "type.googleapis.com/google.protobuf.Int32Value",
+						Default:     memoryDefault,
+					},
+				},
+			}.Build()
+
+			_, err = templatesDao.Create().SetObject(template).Do(ctx)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Create the server:
+			server, err = NewPrivateComputeInstancesServer().
+				SetLogger(logger).
+				SetAttributionLogic(attribution).
+				SetTenancyLogic(tenancy).
+				Build()
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		Context("Subnet validation", func() {
+			It("Should succeed with valid READY Subnet", func() {
+				subnet := createTestSubnet(ctx, virtualNetwork.GetId(), privatev1.SubnetState_SUBNET_STATE_READY)
+
+				vm := privatev1.ComputeInstance_builder{
+					Spec: privatev1.ComputeInstanceSpec_builder{
+						Template: template.GetId(),
+						Subnet:   proto.String(subnet.GetId()),
+					}.Build(),
+				}.Build()
+
+				request := &privatev1.ComputeInstancesCreateRequest{}
+				request.SetObject(vm)
+
+				response, err := server.Create(ctx, request)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response).ToNot(BeNil())
+				Expect(response.GetObject().GetSpec().GetSubnet()).To(Equal(subnet.GetId()))
+			})
+
+			It("Should fail with non-existent Subnet", func() {
+				vm := privatev1.ComputeInstance_builder{
+					Spec: privatev1.ComputeInstanceSpec_builder{
+						Template: template.GetId(),
+						Subnet:   proto.String("non-existent-subnet-id"),
+					}.Build(),
+				}.Build()
+
+				request := &privatev1.ComputeInstancesCreateRequest{}
+				request.SetObject(vm)
+
+				response, err := server.Create(ctx, request)
+				Expect(err).To(HaveOccurred())
+				Expect(response).To(BeNil())
+
+				status, ok := grpcstatus.FromError(err)
+				Expect(ok).To(BeTrue())
+				Expect(status.Code()).To(Equal(grpccodes.InvalidArgument))
+				Expect(status.Message()).To(ContainSubstring("subnet"))
+				Expect(status.Message()).To(ContainSubstring("does not exist"))
+			})
+
+			It("Should fail with Subnet not in READY state", func() {
+				subnet := createTestSubnet(ctx, virtualNetwork.GetId(), privatev1.SubnetState_SUBNET_STATE_PENDING)
+
+				vm := privatev1.ComputeInstance_builder{
+					Spec: privatev1.ComputeInstanceSpec_builder{
+						Template: template.GetId(),
+						Subnet:   proto.String(subnet.GetId()),
+					}.Build(),
+				}.Build()
+
+				request := &privatev1.ComputeInstancesCreateRequest{}
+				request.SetObject(vm)
+
+				response, err := server.Create(ctx, request)
+				Expect(err).To(HaveOccurred())
+				Expect(response).To(BeNil())
+
+				status, ok := grpcstatus.FromError(err)
+				Expect(ok).To(BeTrue())
+				Expect(status.Code()).To(Equal(grpccodes.FailedPrecondition))
+				Expect(status.Message()).To(ContainSubstring("not in READY state"))
+			})
+		})
+
+		Context("SecurityGroup validation", func() {
+			var subnet *privatev1.Subnet
+
+			BeforeEach(func() {
+				subnet = createTestSubnet(ctx, virtualNetwork.GetId(), privatev1.SubnetState_SUBNET_STATE_READY)
+			})
+
+			It("Should succeed with valid READY SecurityGroups", func() {
+				sg1 := createTestSecurityGroup(ctx, virtualNetwork.GetId(), privatev1.SecurityGroupState_SECURITY_GROUP_STATE_READY)
+				sg2 := createTestSecurityGroup(ctx, virtualNetwork.GetId(), privatev1.SecurityGroupState_SECURITY_GROUP_STATE_READY)
+
+				vm := privatev1.ComputeInstance_builder{
+					Spec: privatev1.ComputeInstanceSpec_builder{
+						Template:       template.GetId(),
+						Subnet:         proto.String(subnet.GetId()),
+						SecurityGroups: []string{sg1.GetId(), sg2.GetId()},
+					}.Build(),
+				}.Build()
+
+				request := &privatev1.ComputeInstancesCreateRequest{}
+				request.SetObject(vm)
+
+				response, err := server.Create(ctx, request)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response).ToNot(BeNil())
+				Expect(response.GetObject().GetSpec().GetSecurityGroups()).To(Equal([]string{sg1.GetId(), sg2.GetId()}))
+			})
+
+			It("Should fail with non-existent SecurityGroup", func() {
+				vm := privatev1.ComputeInstance_builder{
+					Spec: privatev1.ComputeInstanceSpec_builder{
+						Template:       template.GetId(),
+						Subnet:         proto.String(subnet.GetId()),
+						SecurityGroups: []string{"non-existent-sg-id"},
+					}.Build(),
+				}.Build()
+
+				request := &privatev1.ComputeInstancesCreateRequest{}
+				request.SetObject(vm)
+
+				response, err := server.Create(ctx, request)
+				Expect(err).To(HaveOccurred())
+				Expect(response).To(BeNil())
+
+				status, ok := grpcstatus.FromError(err)
+				Expect(ok).To(BeTrue())
+				Expect(status.Code()).To(Equal(grpccodes.InvalidArgument))
+				Expect(status.Message()).To(ContainSubstring("security group"))
+				Expect(status.Message()).To(ContainSubstring("does not exist"))
+			})
+
+			It("Should fail with SecurityGroup not in READY state", func() {
+				sg := createTestSecurityGroup(ctx, virtualNetwork.GetId(), privatev1.SecurityGroupState_SECURITY_GROUP_STATE_PENDING)
+
+				vm := privatev1.ComputeInstance_builder{
+					Spec: privatev1.ComputeInstanceSpec_builder{
+						Template:       template.GetId(),
+						Subnet:         proto.String(subnet.GetId()),
+						SecurityGroups: []string{sg.GetId()},
+					}.Build(),
+				}.Build()
+
+				request := &privatev1.ComputeInstancesCreateRequest{}
+				request.SetObject(vm)
+
+				response, err := server.Create(ctx, request)
+				Expect(err).To(HaveOccurred())
+				Expect(response).To(BeNil())
+
+				status, ok := grpcstatus.FromError(err)
+				Expect(ok).To(BeTrue())
+				Expect(status.Code()).To(Equal(grpccodes.FailedPrecondition))
+				Expect(status.Message()).To(ContainSubstring("security group"))
+				Expect(status.Message()).To(ContainSubstring("not in READY state"))
+			})
+
+			It("Should fail with SecurityGroup from different VirtualNetwork", func() {
+				// Create another VirtualNetwork
+				otherVN := createTestVirtualNetwork(ctx, networkClass.GetId())
+				sgFromOtherVN := createTestSecurityGroup(ctx, otherVN.GetId(), privatev1.SecurityGroupState_SECURITY_GROUP_STATE_READY)
+
+				vm := privatev1.ComputeInstance_builder{
+					Spec: privatev1.ComputeInstanceSpec_builder{
+						Template:       template.GetId(),
+						Subnet:         proto.String(subnet.GetId()),
+						SecurityGroups: []string{sgFromOtherVN.GetId()},
+					}.Build(),
+				}.Build()
+
+				request := &privatev1.ComputeInstancesCreateRequest{}
+				request.SetObject(vm)
+
+				response, err := server.Create(ctx, request)
+				Expect(err).To(HaveOccurred())
+				Expect(response).To(BeNil())
+
+				status, ok := grpcstatus.FromError(err)
+				Expect(ok).To(BeTrue())
+				Expect(status.Code()).To(Equal(grpccodes.InvalidArgument))
+				Expect(status.Message()).To(ContainSubstring("VirtualNetwork"))
+				Expect(status.Message()).To(ContainSubstring(virtualNetwork.GetId()))
+				Expect(status.Message()).To(ContainSubstring(otherVN.GetId()))
+			})
+		})
+
+		Context("Optional network fields", func() {
+			It("Should succeed with no network references", func() {
+				vm := privatev1.ComputeInstance_builder{
+					Spec: privatev1.ComputeInstanceSpec_builder{
+						Template: template.GetId(),
+					}.Build(),
+				}.Build()
+
+				request := &privatev1.ComputeInstancesCreateRequest{}
+				request.SetObject(vm)
+
+				response, err := server.Create(ctx, request)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response).ToNot(BeNil())
+				Expect(response.GetObject().GetSpec().GetSubnet()).To(BeEmpty())
+				Expect(response.GetObject().GetSpec().GetSecurityGroups()).To(BeEmpty())
+			})
 		})
 	})
 })

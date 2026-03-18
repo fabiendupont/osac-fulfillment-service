@@ -186,7 +186,7 @@ func (t *task) update(ctx context.Context) error {
 	}
 
 	// Prepare the changes to the spec:
-	spec, err := t.buildSpec()
+	spec, err := t.buildSpec(ctx)
 	if err != nil {
 		return err
 	}
@@ -399,6 +399,35 @@ func (t *task) getKubeObject(ctx context.Context) (result *unstructured.Unstruct
 	return
 }
 
+// getSubnetCR looks up a Subnet CR in the hub cluster by its fulfillment UUID label.
+// Returns the Subnet CR if exactly one is found, nil if none found, or an error if multiple found.
+func (t *task) getSubnetCR(ctx context.Context, subnetID string) (*unstructured.Unstructured, error) {
+	list := &unstructured.UnstructuredList{}
+	list.SetGroupVersionKind(gvks.SubnetList)
+	err := t.hubClient.List(
+		ctx, list,
+		clnt.InNamespace(t.hubNamespace),
+		clnt.MatchingLabels{
+			labels.SubnetUuid: subnetID,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	items := list.Items
+	count := len(items)
+	if count > 1 {
+		return nil, fmt.Errorf(
+			"expected at most one subnet with identifier '%s' but found %d",
+			subnetID, count,
+		)
+	}
+	if count == 0 {
+		return nil, nil
+	}
+	return &items[0], nil
+}
+
 // addFinalizer adds the controller finalizer if it is not already present. Returns true if the finalizer was added,
 // false if it was already present.
 func (t *task) addFinalizer() bool {
@@ -457,7 +486,7 @@ func (t *task) updateCondition(conditionType privatev1.ComputeInstanceConditionT
 
 // buildSpec constructs the spec map for the Kubernetes ComputeInstance object based on the
 // compute instance from the database.
-func (t *task) buildSpec() (map[string]any, error) {
+func (t *task) buildSpec(ctx context.Context) (map[string]any, error) {
 	templateParameters, err := utils.ConvertTemplateParametersToJSON(t.computeInstance.GetSpec().GetTemplateParameters())
 	if err != nil {
 		return nil, err
@@ -474,6 +503,35 @@ func (t *task) buildSpec() (map[string]any, error) {
 
 	// Add explicit spec fields if present:
 	t.addExplicitFields(spec)
+
+	// Add subnet reference if subnet is specified
+	if t.computeInstance.GetSpec().HasSubnet() {
+		subnetID := t.computeInstance.GetSpec().GetSubnet()
+		subnetCR, err := t.getSubnetCR(ctx, subnetID)
+		if err != nil {
+			t.r.logger.WarnContext(
+				ctx,
+				"Failed to look up Subnet CR",
+				slog.String("subnet_id", subnetID),
+				slog.String("error", err.Error()),
+			)
+			// Don't set subnetRef if lookup fails
+		} else if subnetCR != nil {
+			spec["subnetRef"] = subnetCR.GetName()
+			t.r.logger.DebugContext(
+				ctx,
+				"Set subnetRef from Subnet CR",
+				slog.String("subnet_id", subnetID),
+				slog.String("subnet_ref", subnetCR.GetName()),
+			)
+		} else {
+			t.r.logger.WarnContext(
+				ctx,
+				"Subnet CR not found",
+				slog.String("subnet_id", subnetID),
+			)
+		}
+	}
 
 	return spec, nil
 }

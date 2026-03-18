@@ -73,6 +73,12 @@ message ComputeInstanceSpec {
 
   // Name of the secret containing cloud-init user data.
   optional string user_data_secret_ref = 11;
+
+  // Subnet ID for network attachment. References Subnet by fulfillment ID.
+  optional string subnet = 12;
+
+  // SecurityGroup IDs for security policies. References SecurityGroups by fulfillment ID.
+  repeated string security_groups = 13;
 }
 
 message ComputeInstanceStatus {
