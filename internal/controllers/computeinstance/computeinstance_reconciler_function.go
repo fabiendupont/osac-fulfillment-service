@@ -181,7 +181,7 @@ func (t *task) update(ctx context.Context) error {
 	}
 
 	// Set the user data Secret name if user data is provided (no K8s call yet):
-	if t.computeInstance.GetSpec().HasUserDataSecretRef() {
+	if t.computeInstance.GetSpec().HasUserData() {
 		t.userDataSecretName = fmt.Sprintf("%s%s", t.computeInstance.GetId(), userDataSecretSuffix)
 	}
 
@@ -603,7 +603,7 @@ func (t *task) ensureUserDataSecret(ctx context.Context, owner *unstructured.Uns
 		},
 	})
 	if err := unstructured.SetNestedField(secret.Object, map[string]any{
-		userDataSecretKey: t.computeInstance.GetSpec().GetUserDataSecretRef(),
+		userDataSecretKey: t.computeInstance.GetSpec().GetUserData(),
 	}, "stringData"); err != nil {
 		return err
 	}

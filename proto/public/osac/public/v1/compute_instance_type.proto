@@ -140,8 +140,8 @@ message ComputeInstanceSpec {
   // Run strategy for the compute instance (e.g. "Always" or "Halted").
   optional string run_strategy = 10;
 
-  // Name of the secret containing cloud-init user data.
-  optional string user_data_secret_ref = 11;
+  // User data for the compute instance (e.g. cloud-init, ignition).
+  optional string user_data = 11;
 
   // Reference to Subnet by fulfillment ID. VM will be attached to this subnet's network.
   //

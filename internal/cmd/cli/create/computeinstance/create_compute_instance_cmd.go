@@ -129,10 +129,10 @@ func Cmd() *cobra.Command {
 		"Run strategy (e.g. 'Always' or 'Halted').",
 	)
 	flags.StringVar(
-		&runner.args.userDataSecretRef,
-		"user-data-secret-ref",
+		&runner.args.userData,
+		"user-data",
 		"",
-		"Name of the secret containing cloud-init user data.",
+		"User data for the compute instance (e.g. cloud-init, ignition).",
 	)
 	return result
 }
@@ -151,7 +151,7 @@ type runnerContext struct {
 		bootDiskSizeGiB         int32
 		additionalDisks         []string
 		runStrategy             string
-		userDataSecretRef       string
+		userData                string
 	}
 	logger                 *slog.Logger
 	console                *terminal.Console
@@ -665,8 +665,8 @@ func (c *runnerContext) buildSpec(templateID string,
 	if c.args.runStrategy != "" {
 		spec.RunStrategy = proto.String(c.args.runStrategy)
 	}
-	if c.args.userDataSecretRef != "" {
-		spec.UserDataSecretRef = proto.String(c.args.userDataSecretRef)
+	if c.args.userData != "" {
+		spec.UserData = proto.String(c.args.userData)
 	}
 	return spec.Build(), nil
 }

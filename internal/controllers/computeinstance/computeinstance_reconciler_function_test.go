@@ -709,7 +709,7 @@ var _ = Describe("ensureUserDataSecret", func() {
 			computeInstance: privatev1.ComputeInstance_builder{
 				Id: ciID,
 				Spec: privatev1.ComputeInstanceSpec_builder{
-					UserDataSecretRef: proto.String("#cloud-config\npackages:\n  - vim"),
+					UserData: proto.String("#cloud-config\npackages:\n  - vim"),
 				}.Build(),
 			}.Build(),
 			hubNamespace:       hubNamespace,
@@ -757,7 +757,7 @@ var _ = Describe("ensureUserDataSecret", func() {
 			computeInstance: privatev1.ComputeInstance_builder{
 				Id: ciID,
 				Spec: privatev1.ComputeInstanceSpec_builder{
-					UserDataSecretRef: proto.String("some-data"),
+					UserData: proto.String("some-data"),
 				}.Build(),
 			}.Build(),
 			hubNamespace:       hubNamespace,
@@ -785,7 +785,7 @@ var _ = Describe("ensureUserDataSecret", func() {
 			computeInstance: privatev1.ComputeInstance_builder{
 				Id: ciID,
 				Spec: privatev1.ComputeInstanceSpec_builder{
-					UserDataSecretRef: proto.String("some-data"),
+					UserData: proto.String("some-data"),
 				}.Build(),
 			}.Build(),
 			hubNamespace:       hubNamespace,
