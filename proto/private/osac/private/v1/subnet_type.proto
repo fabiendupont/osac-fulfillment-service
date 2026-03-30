@@ -169,4 +169,22 @@ enum SubnetState {
   // The status.message field will contain specific error details. Failed subnets typically require deletion
   // and recreation with corrected parameters.
   SUBNET_STATE_FAILED = 3;
+
+  // The subnet is being deleted.
+  //
+  // During this state, the system is:
+  // - Removing network policies and routing rules
+  // - Deallocating IP address space
+  // - Cleaning up backend network resources
+  //
+  // The subnet will be archived once deletion completes successfully.
+  SUBNET_STATE_DELETING = 4;
+
+  // The subnet deletion has failed.
+  //
+  // The deprovision operation encountered an error and could not complete.
+  // The status.message field will contain specific error details.
+  // Manual intervention may be required to resolve the underlying issue
+  // before retrying deletion.
+  SUBNET_STATE_DELETE_FAILED = 5;
 }
