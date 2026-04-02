@@ -18,7 +18,7 @@ require (
 	github.com/mattn/go-colorable v0.1.14
 	github.com/mattn/go-isatty v0.0.20
 	github.com/neilotoole/jsoncolor v0.7.2
-	github.com/open-policy-agent/opa v1.14.1
+	github.com/open-policy-agent/opa v1.15.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	go.uber.org/mock v0.6.0
@@ -27,7 +27,7 @@ require (
 	golang.org/x/term v0.41.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20260209200024-4cfbd4190f57
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260209200024-4cfbd4190f57
-	google.golang.org/grpc v1.79.3
+	google.golang.org/grpc v1.80.0
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.35.3
@@ -64,7 +64,7 @@ require (
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/pprof v0.0.0-20260115054156-294ebfa9ad83 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/itchyny/timefmt-go v0.1.7 // indirect
+	github.com/itchyny/timefmt-go v0.1.8 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
@@ -117,7 +117,7 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/cel-go v0.27.0
 	github.com/gorilla/handlers v1.5.2
-	github.com/itchyny/gojq v0.12.18
+	github.com/itchyny/gojq v0.12.19
 	github.com/jackc/pgx/v5 v5.9.1
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
