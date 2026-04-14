@@ -528,7 +528,7 @@ The authorization policy allows:
      - Events: `Watch`
      - Cluster Templates: `Get`, `List`
      - Clusters: `Create`, `Delete`, `Get`, `GetKubeconfig`, `GetKubeconfigViaHttp`, `GetPassword`, `GetPasswordViaHttp`, `List`, `Update`
-     - Host Classes: `Get`, `List`
+     - Host Types: `Get`, `List`
      - Compute Instance Templates: `Get`, `List`
      - Compute Instances: `Create`, `Delete`, `Get`, `List`, `Update`
 

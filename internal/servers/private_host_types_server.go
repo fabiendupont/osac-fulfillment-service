@@ -25,7 +25,7 @@ import (
 	"github.com/osac-project/fulfillment-service/internal/database"
 )
 
-type PrivateHostClassesServerBuilder struct {
+type PrivateHostTypesServerBuilder struct {
 	logger            *slog.Logger
 	notifier          *database.Notifier
 	attributionLogic  auth.AttributionLogic
@@ -33,46 +33,46 @@ type PrivateHostClassesServerBuilder struct {
 	metricsRegisterer prometheus.Registerer
 }
 
-var _ privatev1.HostClassesServer = (*PrivateHostClassesServer)(nil)
+var _ privatev1.HostTypesServer = (*PrivateHostTypesServer)(nil)
 
-type PrivateHostClassesServer struct {
-	privatev1.UnimplementedHostClassesServer
+type PrivateHostTypesServer struct {
+	privatev1.UnimplementedHostTypesServer
 	logger  *slog.Logger
-	generic *GenericServer[*privatev1.HostClass]
+	generic *GenericServer[*privatev1.HostType]
 }
 
-func NewPrivateHostClassesServer() *PrivateHostClassesServerBuilder {
-	return &PrivateHostClassesServerBuilder{}
+func NewPrivateHostTypesServer() *PrivateHostTypesServerBuilder {
+	return &PrivateHostTypesServerBuilder{}
 }
 
-func (b *PrivateHostClassesServerBuilder) SetLogger(value *slog.Logger) *PrivateHostClassesServerBuilder {
+func (b *PrivateHostTypesServerBuilder) SetLogger(value *slog.Logger) *PrivateHostTypesServerBuilder {
 	b.logger = value
 	return b
 }
 
-func (b *PrivateHostClassesServerBuilder) SetNotifier(value *database.Notifier) *PrivateHostClassesServerBuilder {
+func (b *PrivateHostTypesServerBuilder) SetNotifier(value *database.Notifier) *PrivateHostTypesServerBuilder {
 	b.notifier = value
 	return b
 }
 
-func (b *PrivateHostClassesServerBuilder) SetAttributionLogic(value auth.AttributionLogic) *PrivateHostClassesServerBuilder {
+func (b *PrivateHostTypesServerBuilder) SetAttributionLogic(value auth.AttributionLogic) *PrivateHostTypesServerBuilder {
 	b.attributionLogic = value
 	return b
 }
 
-func (b *PrivateHostClassesServerBuilder) SetTenancyLogic(value auth.TenancyLogic) *PrivateHostClassesServerBuilder {
+func (b *PrivateHostTypesServerBuilder) SetTenancyLogic(value auth.TenancyLogic) *PrivateHostTypesServerBuilder {
 	b.tenancyLogic = value
 	return b
 }
 
 // SetMetricsRegisterer sets the Prometheus registerer used to register the metrics for the underlying database
 // access objects. This is optional. If not set, no metrics will be recorded.
-func (b *PrivateHostClassesServerBuilder) SetMetricsRegisterer(value prometheus.Registerer) *PrivateHostClassesServerBuilder {
+func (b *PrivateHostTypesServerBuilder) SetMetricsRegisterer(value prometheus.Registerer) *PrivateHostTypesServerBuilder {
 	b.metricsRegisterer = value
 	return b
 }
 
-func (b *PrivateHostClassesServerBuilder) Build() (result *PrivateHostClassesServer, err error) {
+func (b *PrivateHostTypesServerBuilder) Build() (result *PrivateHostTypesServer, err error) {
 	// Check parameters:
 	if b.logger == nil {
 		err = errors.New("logger is mandatory")
@@ -84,9 +84,9 @@ func (b *PrivateHostClassesServerBuilder) Build() (result *PrivateHostClassesSer
 	}
 
 	// Create the generic server:
-	generic, err := NewGenericServer[*privatev1.HostClass]().
+	generic, err := NewGenericServer[*privatev1.HostType]().
 		SetLogger(b.logger).
-		SetService(privatev1.HostClasses_ServiceDesc.ServiceName).
+		SetService(privatev1.HostTypes_ServiceDesc.ServiceName).
 		SetNotifier(b.notifier).
 		SetAttributionLogic(b.attributionLogic).
 		SetTenancyLogic(b.tenancyLogic).
@@ -97,45 +97,45 @@ func (b *PrivateHostClassesServerBuilder) Build() (result *PrivateHostClassesSer
 	}
 
 	// Create and populate the object:
-	result = &PrivateHostClassesServer{
+	result = &PrivateHostTypesServer{
 		logger:  b.logger,
 		generic: generic,
 	}
 	return
 }
 
-func (s *PrivateHostClassesServer) List(ctx context.Context,
-	request *privatev1.HostClassesListRequest) (response *privatev1.HostClassesListResponse, err error) {
+func (s *PrivateHostTypesServer) List(ctx context.Context,
+	request *privatev1.HostTypesListRequest) (response *privatev1.HostTypesListResponse, err error) {
 	err = s.generic.List(ctx, request, &response)
 	return
 }
 
-func (s *PrivateHostClassesServer) Get(ctx context.Context,
-	request *privatev1.HostClassesGetRequest) (response *privatev1.HostClassesGetResponse, err error) {
+func (s *PrivateHostTypesServer) Get(ctx context.Context,
+	request *privatev1.HostTypesGetRequest) (response *privatev1.HostTypesGetResponse, err error) {
 	err = s.generic.Get(ctx, request, &response)
 	return
 }
 
-func (s *PrivateHostClassesServer) Create(ctx context.Context,
-	request *privatev1.HostClassesCreateRequest) (response *privatev1.HostClassesCreateResponse, err error) {
+func (s *PrivateHostTypesServer) Create(ctx context.Context,
+	request *privatev1.HostTypesCreateRequest) (response *privatev1.HostTypesCreateResponse, err error) {
 	err = s.generic.Create(ctx, request, &response)
 	return
 }
 
-func (s *PrivateHostClassesServer) Update(ctx context.Context,
-	request *privatev1.HostClassesUpdateRequest) (response *privatev1.HostClassesUpdateResponse, err error) {
+func (s *PrivateHostTypesServer) Update(ctx context.Context,
+	request *privatev1.HostTypesUpdateRequest) (response *privatev1.HostTypesUpdateResponse, err error) {
 	err = s.generic.Update(ctx, request, &response)
 	return
 }
 
-func (s *PrivateHostClassesServer) Delete(ctx context.Context,
-	request *privatev1.HostClassesDeleteRequest) (response *privatev1.HostClassesDeleteResponse, err error) {
+func (s *PrivateHostTypesServer) Delete(ctx context.Context,
+	request *privatev1.HostTypesDeleteRequest) (response *privatev1.HostTypesDeleteResponse, err error) {
 	err = s.generic.Delete(ctx, request, &response)
 	return
 }
 
-func (s *PrivateHostClassesServer) Signal(ctx context.Context,
-	request *privatev1.HostClassesSignalRequest) (response *privatev1.HostClassesSignalResponse, err error) {
+func (s *PrivateHostTypesServer) Signal(ctx context.Context,
+	request *privatev1.HostTypesSignalRequest) (response *privatev1.HostTypesSignalResponse, err error) {
 	err = s.generic.Signal(ctx, request, &response)
 	return
 }

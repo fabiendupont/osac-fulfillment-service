@@ -28,36 +28,36 @@ import (
 
 var _ = Describe("Node set removal", func() {
 	var (
-		ctx                context.Context
-		clustersClient     publicv1.ClustersClient
-		hostClassesClient  privatev1.HostClassesClient
-		templatesClient    privatev1.ClusterTemplatesClient
-		workerHostClassId  string
-		storageHostClassId string
-		templateId         string
+		ctx               context.Context
+		clustersClient    publicv1.ClustersClient
+		hostTypesClient   privatev1.HostTypesClient
+		templatesClient   privatev1.ClusterTemplatesClient
+		workerHostTypeId  string
+		storageHostTypeId string
+		templateId        string
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
 
 		clustersClient = publicv1.NewClustersClient(tool.UserConn())
-		hostClassesClient = privatev1.NewHostClassesClient(tool.AdminConn())
+		hostTypesClient = privatev1.NewHostTypesClient(tool.AdminConn())
 		templatesClient = privatev1.NewClusterTemplatesClient(tool.AdminConn())
 
-		// Create worker host class:
-		workerHostClassId = fmt.Sprintf("worker_class_%s", uuid.New())
-		_, err := hostClassesClient.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-			Object: privatev1.HostClass_builder{
-				Id: workerHostClassId,
+		// Create worker host type:
+		workerHostTypeId = fmt.Sprintf("worker_type_%s", uuid.New())
+		_, err := hostTypesClient.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+			Object: privatev1.HostType_builder{
+				Id: workerHostTypeId,
 			}.Build(),
 		}.Build())
 		Expect(err).ToNot(HaveOccurred())
 
-		// Create storage host class:
-		storageHostClassId = fmt.Sprintf("storage_class_%s", uuid.New())
-		_, err = hostClassesClient.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-			Object: privatev1.HostClass_builder{
-				Id: storageHostClassId,
+		// Create storage host type:
+		storageHostTypeId = fmt.Sprintf("storage_type_%s", uuid.New())
+		_, err = hostTypesClient.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+			Object: privatev1.HostType_builder{
+				Id: storageHostTypeId,
 			}.Build(),
 		}.Build())
 		Expect(err).ToNot(HaveOccurred())
@@ -71,12 +71,12 @@ var _ = Describe("Node set removal", func() {
 				Description: "A template with workers and storage node sets.",
 				NodeSets: map[string]*privatev1.ClusterTemplateNodeSet{
 					"workers": privatev1.ClusterTemplateNodeSet_builder{
-						HostClass: workerHostClassId,
-						Size:      3,
+						HostType: workerHostTypeId,
+						Size:     3,
 					}.Build(),
 					"storage": privatev1.ClusterTemplateNodeSet_builder{
-						HostClass: storageHostClassId,
-						Size:      2,
+						HostType: storageHostTypeId,
+						Size:     2,
 					}.Build(),
 				},
 			}.Build(),

@@ -286,7 +286,7 @@ func (t *task) prepareNodeRequests() any {
 
 func (t *task) prepareNodeRequest(nodeSet *privatev1.ClusterNodeSet) any {
 	return map[string]any{
-		"resourceClass": nodeSet.GetHostClass(),
+		"resourceClass": nodeSet.GetHostType(),
 		"numberOfNodes": int64(nodeSet.GetSize()),
 	}
 }

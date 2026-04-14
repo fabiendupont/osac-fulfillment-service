@@ -92,10 +92,10 @@ message ClusterTemplateParameterDefinition {
   google.protobuf.Any default = 6;
 }
 
-// Defines a set of nodes that will be part of cluster, all of them of the same class of host.
+// Defines a set of nodes that will be part of cluster, all of them of the same type of host.
 message ClusterTemplateNodeSet {
-  // Identifier of the class of hosts that are part of the set.
-  string host_class = 1;
+  // Identifier of the type of hosts that are part of the set.
+  string host_type = 1;
 
   // Number of nodes of the set.
   int32 size = 2;

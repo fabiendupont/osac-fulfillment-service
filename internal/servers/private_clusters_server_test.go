@@ -73,7 +73,7 @@ var _ = Describe("Private clusters server", func() {
 		Expect(err).ToNot(HaveOccurred())
 		err = dao.CreateTables[*privatev1.Cluster](ctx)
 		Expect(err).ToNot(HaveOccurred())
-		err = dao.CreateTables[*privatev1.HostClass](ctx)
+		err = dao.CreateTables[*privatev1.HostType](ctx)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -130,8 +130,8 @@ var _ = Describe("Private clusters server", func() {
 				Build()
 			Expect(err).ToNot(HaveOccurred())
 
-			// Ceate the host classes DAO:
-			hoastClassesDao, err := dao.NewGenericDAO[*privatev1.HostClass]().
+			// Create the host types DAO:
+			hostTypesDao, err := dao.NewGenericDAO[*privatev1.HostType]().
 				SetLogger(logger).
 				SetTenancyLogic(tenancy).
 				Build()
@@ -144,11 +144,10 @@ var _ = Describe("Private clusters server", func() {
 				Build()
 			Expect(err).ToNot(HaveOccurred())
 
-			// Create the host classes:
-			Expect(err).ToNot(HaveOccurred())
-			_, err = hoastClassesDao.Create().
+			// Create the host types:
+			_, err = hostTypesDao.Create().
 				SetObject(
-					privatev1.HostClass_builder{
+					privatev1.HostType_builder{
 						Id: "acme-1ti-id",
 						Metadata: privatev1.Metadata_builder{
 							Name:    "acme-1ti-name",
@@ -160,9 +159,9 @@ var _ = Describe("Private clusters server", func() {
 				).
 				Do(ctx)
 			Expect(err).ToNot(HaveOccurred())
-			_, err = hoastClassesDao.Create().
+			_, err = hostTypesDao.Create().
 				SetObject(
-					privatev1.HostClass_builder{
+					privatev1.HostType_builder{
 						Id: "acme-gpu-id",
 						Metadata: privatev1.Metadata_builder{
 							Name:    "acme-gpu-name",
@@ -188,12 +187,12 @@ var _ = Describe("Private clusters server", func() {
 						Description: "My template",
 						NodeSets: map[string]*privatev1.ClusterTemplateNodeSet{
 							"compute": privatev1.ClusterTemplateNodeSet_builder{
-								HostClass: "acme-1ti-id",
-								Size:      3,
+								HostType: "acme-1ti-id",
+								Size:     3,
 							}.Build(),
 							"gpu": privatev1.ClusterTemplateNodeSet_builder{
-								HostClass: "acme-gpu-id",
-								Size:      1,
+								HostType: "acme-gpu-id",
+								Size:     1,
 							}.Build(),
 						},
 					}.Build(),
@@ -214,8 +213,8 @@ var _ = Describe("Private clusters server", func() {
 							}.Build(),
 							NodeSets: map[string]*privatev1.ClusterTemplateNodeSet{
 								"compute": privatev1.ClusterTemplateNodeSet_builder{
-									HostClass: "acme-1ti-id",
-									Size:      3,
+									HostType: "acme-1ti-id",
+									Size:     3,
 								}.Build(),
 							},
 						}.Build(),
@@ -285,16 +284,16 @@ var _ = Describe("Private clusters server", func() {
 			))
 		})
 
-		It("Creates object with host class specified by name in node set", func() {
-			// Create a cluster specifying the host class by name:
+		It("Creates object with host type specified by name in node set", func() {
+			// Create a cluster specifying the host type by name:
 			response, err := server.Create(ctx, privatev1.ClustersCreateRequest_builder{
 				Object: privatev1.Cluster_builder{
 					Spec: privatev1.ClusterSpec_builder{
 						Template: "my-template-id",
 						NodeSets: map[string]*privatev1.ClusterNodeSet{
 							"compute": privatev1.ClusterNodeSet_builder{
-								HostClass: "acme-1ti-name",
-								Size:      5,
+								HostType: "acme-1ti-name",
+								Size:     5,
 							}.Build(),
 						},
 					}.Build(),
@@ -309,23 +308,23 @@ var _ = Describe("Private clusters server", func() {
 			Expect(object).ToNot(BeNil())
 			Expect(object.GetId()).ToNot(BeEmpty())
 
-			// Verify that the host class name was replaced by the identifier:
+			// Verify that the host type name was replaced by the identifier:
 			nodeSets := object.GetSpec().GetNodeSets()
 			Expect(nodeSets).To(HaveKey("compute"))
 			nodeSet := nodeSets["compute"]
-			Expect(nodeSet.GetHostClass()).To(Equal("acme-1ti-id"))
+			Expect(nodeSet.GetHostType()).To(Equal("acme-1ti-id"))
 		})
 
-		It("Creates object with host class specified by identifier in node set", func() {
-			// Create a cluster specifying the host class by identifier:
+		It("Creates object with host type specified by identifier in node set", func() {
+			// Create a cluster specifying the host type by identifier:
 			response, err := server.Create(ctx, privatev1.ClustersCreateRequest_builder{
 				Object: privatev1.Cluster_builder{
 					Spec: privatev1.ClusterSpec_builder{
 						Template: "my-template-id",
 						NodeSets: map[string]*privatev1.ClusterNodeSet{
 							"compute": privatev1.ClusterNodeSet_builder{
-								HostClass: "acme-1ti-id",
-								Size:      7,
+								HostType: "acme-1ti-id",
+								Size:     7,
 							}.Build(),
 						},
 					}.Build(),
@@ -340,23 +339,23 @@ var _ = Describe("Private clusters server", func() {
 			Expect(object).ToNot(BeNil())
 			Expect(object.GetId()).ToNot(BeEmpty())
 
-			// Verify that the host class identifier is preserved:
+			// Verify that the host type identifier is preserved:
 			nodeSets := object.GetSpec().GetNodeSets()
 			Expect(nodeSets).To(HaveKey("compute"))
 			nodeSet := nodeSets["compute"]
-			Expect(nodeSet.GetHostClass()).To(Equal("acme-1ti-id"))
+			Expect(nodeSet.GetHostType()).To(Equal("acme-1ti-id"))
 		})
 
-		It("Creates object with template and host class specified by name", func() {
-			// Create a cluster specifying the template and the host class by name:
+		It("Creates object with template and host type specified by name", func() {
+			// Create a cluster specifying the template and the host type by name:
 			response, err := server.Create(ctx, privatev1.ClustersCreateRequest_builder{
 				Object: privatev1.Cluster_builder{
 					Spec: privatev1.ClusterSpec_builder{
 						Template: "my-template-name",
 						NodeSets: map[string]*privatev1.ClusterNodeSet{
 							"compute": privatev1.ClusterNodeSet_builder{
-								HostClass: "acme-1ti-name",
-								Size:      7,
+								HostType: "acme-1ti-name",
+								Size:     7,
 							}.Build(),
 						},
 					}.Build(),
@@ -371,23 +370,23 @@ var _ = Describe("Private clusters server", func() {
 			Expect(object).ToNot(BeNil())
 			Expect(object.GetId()).ToNot(BeEmpty())
 
-			// Verify that the the template and host class names were replaced by the identifiers:
+			// Verify that the the template and host type names were replaced by the identifiers:
 			Expect(object.GetSpec().GetTemplate()).To(Equal("my-template-id"))
 			nodeSets := object.GetSpec().GetNodeSets()
 			Expect(nodeSets).To(HaveKey("compute"))
 			nodeSet := nodeSets["compute"]
-			Expect(nodeSet.GetHostClass()).To(Equal("acme-1ti-id"))
+			Expect(nodeSet.GetHostType()).To(Equal("acme-1ti-id"))
 		})
 
-		It("Fails when creating object with non-existent host class name", func() {
+		It("Fails when creating object with non-existent host type name", func() {
 			_, err := server.Create(ctx, privatev1.ClustersCreateRequest_builder{
 				Object: privatev1.Cluster_builder{
 					Spec: privatev1.ClusterSpec_builder{
 						Template: "my-template-id",
 						NodeSets: map[string]*privatev1.ClusterNodeSet{
 							"compute": privatev1.ClusterNodeSet_builder{
-								HostClass: `does-not-exist`,
-								Size:      5,
+								HostType: `does-not-exist`,
+								Size:     5,
 							}.Build(),
 						},
 					}.Build(),
@@ -401,7 +400,7 @@ var _ = Describe("Private clusters server", func() {
 			Expect(ok).To(BeTrue())
 			Expect(status.Code()).To(Equal(grpccodes.NotFound))
 			Expect(status.Message()).To(Equal(
-				"there is no host class with identifier or name 'does-not-exist'",
+				"there is no host type with identifier or name 'does-not-exist'",
 			))
 		})
 
@@ -412,8 +411,8 @@ var _ = Describe("Private clusters server", func() {
 						Template: "my-template-id",
 						NodeSets: map[string]*privatev1.ClusterNodeSet{
 							"does-not-exist": privatev1.ClusterNodeSet_builder{
-								HostClass: "acme-1ti-id",
-								Size:      5,
+								HostType: "acme-1ti-id",
+								Size:     5,
 							}.Build(),
 						},
 					}.Build(),
@@ -432,15 +431,15 @@ var _ = Describe("Private clusters server", func() {
 			))
 		})
 
-		It("Fails when creating object with host class that doesn't match template", func() {
+		It("Fails when creating object with host type that doesn't match template", func() {
 			_, err := server.Create(ctx, privatev1.ClustersCreateRequest_builder{
 				Object: privatev1.Cluster_builder{
 					Spec: privatev1.ClusterSpec_builder{
 						Template: "my-template-id",
 						NodeSets: map[string]*privatev1.ClusterNodeSet{
 							"compute": privatev1.ClusterNodeSet_builder{
-								HostClass: "acme-gpu-id",
-								Size:      5,
+								HostType: "acme-gpu-id",
+								Size:     5,
 							}.Build(),
 						},
 					}.Build(),
@@ -454,7 +453,7 @@ var _ = Describe("Private clusters server", func() {
 			Expect(ok).To(BeTrue())
 			Expect(status.Code()).To(Equal(grpccodes.InvalidArgument))
 			Expect(status.Message()).To(Equal(
-				"host class for node set 'compute' should be empty, 'acme-1ti-name' or 'acme-1ti-id', " +
+				"host type for node set 'compute' should be empty, 'acme-1ti-name' or 'acme-1ti-id', " +
 					"like in template 'my-template-id', but it is 'acme-gpu-id'",
 			))
 		})
@@ -776,16 +775,16 @@ var _ = Describe("Private clusters server", func() {
 					Spec: privatev1.ClusterSpec_builder{
 						NodeSets: map[string]*privatev1.ClusterNodeSet{
 							"compute": privatev1.ClusterNodeSet_builder{
-								HostClass: "acme-1ti-id",
-								Size:      3,
+								HostType: "acme-1ti-id",
+								Size:     3,
 							}.Build(),
 							"gpu": privatev1.ClusterNodeSet_builder{
-								HostClass: "acme-gpu-id",
-								Size:      1,
+								HostType: "acme-gpu-id",
+								Size:     1,
 							}.Build(),
 							"storage": privatev1.ClusterNodeSet_builder{
-								HostClass: "acme-1ti-id",
-								Size:      2,
+								HostType: "acme-1ti-id",
+								Size:     2,
 							}.Build(),
 						},
 					}.Build(),
@@ -817,8 +816,8 @@ var _ = Describe("Private clusters server", func() {
 					Spec: privatev1.ClusterSpec_builder{
 						NodeSets: map[string]*privatev1.ClusterNodeSet{
 							"compute": privatev1.ClusterNodeSet_builder{
-								HostClass: "acme-1ti-id",
-								Size:      3,
+								HostType: "acme-1ti-id",
+								Size:     3,
 							}.Build(),
 						},
 					}.Build(),
@@ -862,7 +861,7 @@ var _ = Describe("Private clusters server", func() {
 			Expect(status.Message()).To(Equal("cannot remove the last node set: clusters must have at least one node set"))
 		})
 
-		It("Rejects changing host_class of an existing node set", func() {
+		It("Rejects changing host_type of an existing node set", func() {
 			// Create a cluster with the default node sets from the template
 			createResponse, err := server.Create(ctx, privatev1.ClustersCreateRequest_builder{
 				Object: privatev1.Cluster_builder{
@@ -874,19 +873,19 @@ var _ = Describe("Private clusters server", func() {
 			Expect(err).ToNot(HaveOccurred())
 			object := createResponse.GetObject()
 
-			// Try to change the host_class of the compute node set
+			// Try to change the host_type of the compute node set
 			_, err = server.Update(ctx, privatev1.ClustersUpdateRequest_builder{
 				Object: privatev1.Cluster_builder{
 					Id: object.GetId(),
 					Spec: privatev1.ClusterSpec_builder{
 						NodeSets: map[string]*privatev1.ClusterNodeSet{
 							"compute": privatev1.ClusterNodeSet_builder{
-								HostClass: "acme-gpu-id", // Changed from acme-1ti-id
-								Size:      3,
+								HostType: "acme-gpu-id", // Changed from acme-1ti-id
+								Size:     3,
 							}.Build(),
 							"gpu": privatev1.ClusterNodeSet_builder{
-								HostClass: "acme-gpu-id",
-								Size:      1,
+								HostType: "acme-gpu-id",
+								Size:     1,
 							}.Build(),
 						},
 					}.Build(),
@@ -899,7 +898,7 @@ var _ = Describe("Private clusters server", func() {
 			status, ok := grpcstatus.FromError(err)
 			Expect(ok).To(BeTrue())
 			Expect(status.Code()).To(Equal(grpccodes.InvalidArgument))
-			Expect(status.Message()).To(Equal("cannot change host_class for node set 'compute' from 'acme-1ti-id' to 'acme-gpu-id': host_class is immutable"))
+			Expect(status.Message()).To(Equal("cannot change host_type for node set 'compute' from 'acme-1ti-id' to 'acme-gpu-id': host_type is immutable"))
 		})
 
 		It("Allows changing size of an existing node set", func() {
@@ -921,12 +920,12 @@ var _ = Describe("Private clusters server", func() {
 					Spec: privatev1.ClusterSpec_builder{
 						NodeSets: map[string]*privatev1.ClusterNodeSet{
 							"compute": privatev1.ClusterNodeSet_builder{
-								HostClass: "acme-1ti-id",
-								Size:      5, // Changed from 3
+								HostType: "acme-1ti-id",
+								Size:     5, // Changed from 3
 							}.Build(),
 							"gpu": privatev1.ClusterNodeSet_builder{
-								HostClass: "acme-gpu-id",
-								Size:      1,
+								HostType: "acme-gpu-id",
+								Size:     1,
 							}.Build(),
 						},
 					}.Build(),

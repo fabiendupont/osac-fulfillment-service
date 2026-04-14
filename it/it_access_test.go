@@ -45,9 +45,9 @@ var _ = Describe("Access control", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Allows regular users to list host classes", func() {
-			client := publicv1.NewHostClassesClient(tool.UserConn())
-			_, err := client.List(ctx, publicv1.HostClassesListRequest_builder{}.Build())
+		It("Allows regular users to list host types", func() {
+			client := publicv1.NewHostTypesClient(tool.UserConn())
+			_, err := client.List(ctx, publicv1.HostTypesListRequest_builder{}.Build())
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -75,9 +75,9 @@ var _ = Describe("Access control", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Allows admin users to list host classes", func() {
-			client := publicv1.NewHostClassesClient(tool.AdminConn())
-			_, err := client.List(ctx, publicv1.HostClassesListRequest_builder{}.Build())
+		It("Allows admin users to list host types", func() {
+			client := publicv1.NewHostTypesClient(tool.AdminConn())
+			_, err := client.List(ctx, publicv1.HostTypesListRequest_builder{}.Build())
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -95,9 +95,9 @@ var _ = Describe("Access control", func() {
 	})
 
 	Describe("Private API", func() {
-		It("Allows admin users to list host classes", func() {
-			client := privatev1.NewHostClassesClient(tool.AdminConn())
-			_, err := client.List(ctx, privatev1.HostClassesListRequest_builder{}.Build())
+		It("Allows admin users to list host types", func() {
+			client := privatev1.NewHostTypesClient(tool.AdminConn())
+			_, err := client.List(ctx, privatev1.HostTypesListRequest_builder{}.Build())
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -131,9 +131,9 @@ var _ = Describe("Access control", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Denies regular users access to host classes", func() {
-			client := privatev1.NewHostClassesClient(tool.UserConn())
-			_, err := client.List(ctx, privatev1.HostClassesListRequest_builder{}.Build())
+		It("Denies regular users access to host types", func() {
+			client := privatev1.NewHostTypesClient(tool.UserConn())
+			_, err := client.List(ctx, privatev1.HostTypesListRequest_builder{}.Build())
 			Expect(err).To(HaveOccurred())
 			status, ok := grpcstatus.FromError(err)
 			Expect(ok).To(BeTrue())

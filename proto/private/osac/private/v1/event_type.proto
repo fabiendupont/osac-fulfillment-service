@@ -19,7 +19,7 @@ import "osac/private/v1/cluster_template_type.proto";
 import "osac/private/v1/cluster_type.proto";
 import "osac/private/v1/compute_instance_template_type.proto";
 import "osac/private/v1/compute_instance_type.proto";
-import "osac/private/v1/host_class_type.proto";
+import "osac/private/v1/host_type_type.proto";
 import "osac/private/v1/hub_type.proto";
 import "osac/private/v1/lease_type.proto";
 import "osac/private/v1/network_class_type.proto";
@@ -39,7 +39,7 @@ message Event {
   oneof payload {
     Cluster cluster = 3;
     ClusterTemplate cluster_template = 4;
-    HostClass host_class = 5;
+    HostType host_type = 5;
     Hub hub = 6;
     ComputeInstanceTemplate compute_instance_template = 7;
     ComputeInstance compute_instance = 8;

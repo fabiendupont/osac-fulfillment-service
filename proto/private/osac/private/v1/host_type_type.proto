@@ -17,7 +17,7 @@ package osac.private.v1;
 
 import "osac/private/v1/metadata_type.proto";
 
-message HostClass {
+message HostType {
   string id = 1;
   Metadata metadata = 2;
   string title = 3;

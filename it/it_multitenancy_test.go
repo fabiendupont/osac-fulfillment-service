@@ -53,7 +53,7 @@ var _ = Describe("Multitenancy authentication error handling", Label("multitenan
 		},
 		Entry("clusters", fmt.Sprintf("https://%s/api/fulfillment/v1/clusters", serviceAddr)),
 		Entry("cluster templates", fmt.Sprintf("https://%s/api/fulfillment/v1/cluster_templates", serviceAddr)),
-		Entry("host classes", fmt.Sprintf("https://%s/api/fulfillment/v1/host_classes", serviceAddr)),
+		Entry("host types", fmt.Sprintf("https://%s/api/fulfillment/v1/host_types", serviceAddr)),
 	)
 
 	DescribeTable(
@@ -109,7 +109,7 @@ var _ = Describe("Multitenancy authentication error handling", Label("multitenan
 		},
 		Entry("clusters", fmt.Sprintf("https://%s/api/fulfillment/v1/clusters", serviceAddr)),
 		Entry("cluster templates", fmt.Sprintf("https://%s/api/fulfillment/v1/cluster_templates", serviceAddr)),
-		Entry("host classes", fmt.Sprintf("https://%s/api/fulfillment/v1/host_classes", serviceAddr)),
+		Entry("host types", fmt.Sprintf("https://%s/api/fulfillment/v1/host_types", serviceAddr)),
 	)
 })
 
@@ -143,18 +143,18 @@ var _ = Describe("Multitenancy basic tenant isolation", Ordered, Label("multiten
 				// Create map to track which clusters belong to which tenants
 				tenantClusterMapping = make(map[string][]string)
 
-				// Create host class for testing
-				hostClassesClient := privatev1.NewHostClassesClient(tool.AdminConn())
-				hostClassId := "basic-sa-isolation-hostclass"
-				_, err := hostClassesClient.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-					Object: privatev1.HostClass_builder{
-						Id: hostClassId,
+				// Create host type for testing
+				hostTypesClient := privatev1.NewHostTypesClient(tool.AdminConn())
+				hostTypeId := "basic-sa-isolation-hosttype"
+				_, err := hostTypesClient.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+					Object: privatev1.HostType_builder{
+						Id: hostTypeId,
 					}.Build(),
 				}.Build())
 				Expect(err).ToNot(HaveOccurred())
 				DeferCleanup(func() {
-					_, err := hostClassesClient.Delete(ctx, privatev1.HostClassesDeleteRequest_builder{
-						Id: hostClassId,
+					_, err := hostTypesClient.Delete(ctx, privatev1.HostTypesDeleteRequest_builder{
+						Id: hostTypeId,
 					}.Build())
 					Expect(err).ToNot(HaveOccurred())
 				})
@@ -167,8 +167,8 @@ var _ = Describe("Multitenancy basic tenant isolation", Ordered, Label("multiten
 						Id: templateId,
 						NodeSets: map[string]*privatev1.ClusterTemplateNodeSet{
 							"my-node-set": privatev1.ClusterTemplateNodeSet_builder{
-								HostClass: hostClassId,
-								Size:      3,
+								HostType: hostTypeId,
+								Size:     3,
 							}.Build(),
 						},
 					}.Build(),
@@ -350,18 +350,18 @@ var _ = Describe("Multitenancy basic tenant isolation", Ordered, Label("multiten
 				// Create map to track which clusters can be seen by which tenants
 				clusterTenantMapping = make(map[string][]string)
 
-				// Create host class for testing
-				hostClassId := "basic-oidc-isolation-hostclass"
-				hostClassesClient := privatev1.NewHostClassesClient(tool.adminConn)
-				_, err := hostClassesClient.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-					Object: privatev1.HostClass_builder{
-						Id: hostClassId,
+				// Create host type for testing
+				hostTypeId := "basic-oidc-isolation-hosttype"
+				hostTypesClient := privatev1.NewHostTypesClient(tool.adminConn)
+				_, err := hostTypesClient.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+					Object: privatev1.HostType_builder{
+						Id: hostTypeId,
 					}.Build(),
 				}.Build())
 				Expect(err).ToNot(HaveOccurred())
 				DeferCleanup(func() {
-					_, err := hostClassesClient.Delete(ctx, privatev1.HostClassesDeleteRequest_builder{
-						Id: hostClassId,
+					_, err := hostTypesClient.Delete(ctx, privatev1.HostTypesDeleteRequest_builder{
+						Id: hostTypeId,
 					}.Build())
 					Expect(err).ToNot(HaveOccurred())
 				})
@@ -374,8 +374,8 @@ var _ = Describe("Multitenancy basic tenant isolation", Ordered, Label("multiten
 						Id: templateId,
 						NodeSets: map[string]*privatev1.ClusterTemplateNodeSet{
 							"my-node-set": privatev1.ClusterTemplateNodeSet_builder{
-								HostClass: hostClassId,
-								Size:      3,
+								HostType: hostTypeId,
+								Size:     3,
 							}.Build(),
 						},
 					}.Build(),

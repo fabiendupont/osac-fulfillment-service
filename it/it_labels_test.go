@@ -29,30 +29,30 @@ import (
 
 var _ = Describe("Labels", func() {
 	var (
-		ctx               context.Context
-		clustersClient    publicv1.ClustersClient
-		hostClassesClient privatev1.HostClassesClient
-		templatesClient   privatev1.ClusterTemplatesClient
-		hostClassId       string
-		templateId        string
+		ctx             context.Context
+		clustersClient  publicv1.ClustersClient
+		hostTypesClient privatev1.HostTypesClient
+		templatesClient privatev1.ClusterTemplatesClient
+		hostTypeId      string
+		templateId      string
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
 		clustersClient = publicv1.NewClustersClient(tool.UserConn())
-		hostClassesClient = privatev1.NewHostClassesClient(tool.AdminConn())
+		hostTypesClient = privatev1.NewHostTypesClient(tool.AdminConn())
 		templatesClient = privatev1.NewClusterTemplatesClient(tool.AdminConn())
 
-		hostClassId = fmt.Sprintf("my-host-class-%s", uuid.New())
-		_, err := hostClassesClient.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-			Object: privatev1.HostClass_builder{
-				Id: hostClassId,
+		hostTypeId = fmt.Sprintf("my-host-type-%s", uuid.New())
+		_, err := hostTypesClient.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+			Object: privatev1.HostType_builder{
+				Id: hostTypeId,
 			}.Build(),
 		}.Build())
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() {
-			_, err := hostClassesClient.Delete(ctx, privatev1.HostClassesDeleteRequest_builder{
-				Id: hostClassId,
+			_, err := hostTypesClient.Delete(ctx, privatev1.HostTypesDeleteRequest_builder{
+				Id: hostTypeId,
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -65,8 +65,8 @@ var _ = Describe("Labels", func() {
 				Description: "My template.",
 				NodeSets: map[string]*privatev1.ClusterTemplateNodeSet{
 					"my-node-set": privatev1.ClusterTemplateNodeSet_builder{
-						HostClass: hostClassId,
-						Size:      3,
+						HostType: hostTypeId,
+						Size:     3,
 					}.Build(),
 				},
 			}.Build(),

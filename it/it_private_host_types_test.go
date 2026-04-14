@@ -24,22 +24,22 @@ import (
 	"github.com/osac-project/fulfillment-service/internal/uuid"
 )
 
-var _ = Describe("Priate host classes", func() {
+var _ = Describe("Private host types", func() {
 	var (
 		ctx    context.Context
-		client privatev1.HostClassesClient
+		client privatev1.HostTypesClient
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		client = privatev1.NewHostClassesClient(tool.AdminConn())
+		client = privatev1.NewHostTypesClient(tool.AdminConn())
 	})
 
-	It("Can get the list of host classes", func() {
-		// Create the host class:
-		id := fmt.Sprintf("my_host_class_%s", uuid.New())
-		_, err := client.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-			Object: privatev1.HostClass_builder{
+	It("Can get the list of host types", func() {
+		// Create the host type:
+		id := fmt.Sprintf("my_host_type_%s", uuid.New())
+		_, err := client.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+			Object: privatev1.HostType_builder{
 				Id:          id,
 				Title:       "My title",
 				Description: "My description.",
@@ -48,18 +48,18 @@ var _ = Describe("Priate host classes", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		// Get the list:
-		listResponse, err := client.List(ctx, privatev1.HostClassesListRequest_builder{}.Build())
+		listResponse, err := client.List(ctx, privatev1.HostTypesListRequest_builder{}.Build())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(listResponse).ToNot(BeNil())
 		items := listResponse.GetItems()
 		Expect(items).ToNot(BeEmpty())
 	})
 
-	It("Can get a specific host class", func() {
-		// Create the host class:
-		id := fmt.Sprintf("my_host_class_%s", uuid.New())
-		_, err := client.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-			Object: privatev1.HostClass_builder{
+	It("Can get a specific host type", func() {
+		// Create the host type:
+		id := fmt.Sprintf("my_host_type_%s", uuid.New())
+		_, err := client.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+			Object: privatev1.HostType_builder{
 				Id:          id,
 				Title:       "My title",
 				Description: "My description.",
@@ -67,8 +67,8 @@ var _ = Describe("Priate host classes", func() {
 		}.Build())
 		Expect(err).ToNot(HaveOccurred())
 
-		// Get the host class and verify that the returned object is correct:
-		response, err := client.Get(ctx, privatev1.HostClassesGetRequest_builder{
+		// Get the host type and verify that the returned object is correct:
+		response, err := client.Get(ctx, privatev1.HostTypesGetRequest_builder{
 			Id: id,
 		}.Build())
 		Expect(err).ToNot(HaveOccurred())
@@ -84,10 +84,10 @@ var _ = Describe("Priate host classes", func() {
 		Expect(object.GetDescription()).To(Equal("My description."))
 	})
 
-	It("Can create a host class", func() {
+	It("Can create a host type", func() {
 		id := fmt.Sprintf("my_template_%s", uuid.New())
-		response, err := client.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-			Object: privatev1.HostClass_builder{
+		response, err := client.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+			Object: privatev1.HostType_builder{
 				Id:          id,
 				Title:       "My title",
 				Description: "My description.",
@@ -106,11 +106,11 @@ var _ = Describe("Priate host classes", func() {
 		Expect(object.GetDescription()).To(Equal("My description."))
 	})
 
-	It("Can update a host class", func() {
-		// Create a host class::
-		id := fmt.Sprintf("my_host_class_%s", uuid.New())
-		_, err := client.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-			Object: privatev1.HostClass_builder{
+	It("Can update a host type", func() {
+		// Create a host type:
+		id := fmt.Sprintf("my_host_type_%s", uuid.New())
+		_, err := client.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+			Object: privatev1.HostType_builder{
 				Id:          id,
 				Title:       "My title",
 				Description: "My description.",
@@ -119,8 +119,8 @@ var _ = Describe("Priate host classes", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		// Update it and verify that the returned object is correct:
-		updateResponse, err := client.Update(ctx, privatev1.HostClassesUpdateRequest_builder{
-			Object: privatev1.HostClass_builder{
+		updateResponse, err := client.Update(ctx, privatev1.HostTypesUpdateRequest_builder{
+			Object: privatev1.HostType_builder{
 				Id:          id,
 				Title:       "My updated title",
 				Description: "My updated description.",
@@ -138,8 +138,8 @@ var _ = Describe("Priate host classes", func() {
 		Expect(object.GetTitle()).To(Equal("My updated title"))
 		Expect(object.GetDescription()).To(Equal("My updated description."))
 
-		// Get the host class and verify that the returned object is correct:
-		getResponse, err := client.Get(ctx, privatev1.HostClassesGetRequest_builder{
+		// Get the host type and verify that the returned object is correct:
+		getResponse, err := client.Get(ctx, privatev1.HostTypesGetRequest_builder{
 			Id: id,
 		}.Build())
 		Expect(err).ToNot(HaveOccurred())
@@ -155,11 +155,11 @@ var _ = Describe("Priate host classes", func() {
 		Expect(object.GetDescription()).To(Equal("My updated description."))
 	})
 
-	It("Can delete a host class", func() {
-		// Create a host class::
-		id := fmt.Sprintf("my_host_class_%s", uuid.New())
-		_, err := client.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-			Object: privatev1.HostClass_builder{
+	It("Can delete a host type", func() {
+		// Create a host type:
+		id := fmt.Sprintf("my_host_type_%s", uuid.New())
+		_, err := client.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+			Object: privatev1.HostType_builder{
 				Metadata: privatev1.Metadata_builder{
 					Finalizers: []string{"a"},
 				}.Build(),
@@ -171,14 +171,14 @@ var _ = Describe("Priate host classes", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		// Delete it:
-		deleteResponse, err := client.Delete(ctx, privatev1.HostClassesDeleteRequest_builder{
+		deleteResponse, err := client.Delete(ctx, privatev1.HostTypesDeleteRequest_builder{
 			Id: id,
 		}.Build())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(deleteResponse).ToNot(BeNil())
 
 		// Verify that the object no longer exists, or that it has the deletion timestamp:
-		getResponse, err := client.Get(ctx, privatev1.HostClassesGetRequest_builder{
+		getResponse, err := client.Get(ctx, privatev1.HostTypesGetRequest_builder{
 			Id: id,
 		}.Build())
 		Expect(err).ToNot(HaveOccurred())

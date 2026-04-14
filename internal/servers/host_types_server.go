@@ -28,7 +28,7 @@ import (
 	"github.com/osac-project/fulfillment-service/internal/database"
 )
 
-type HostClassesServerBuilder struct {
+type HostTypesServerBuilder struct {
 	logger            *slog.Logger
 	notifier          *database.Notifier
 	attributionLogic  auth.AttributionLogic
@@ -36,53 +36,53 @@ type HostClassesServerBuilder struct {
 	metricsRegisterer prometheus.Registerer
 }
 
-var _ publicv1.HostClassesServer = (*HostClassesServer)(nil)
+var _ publicv1.HostTypesServer = (*HostTypesServer)(nil)
 
-type HostClassesServer struct {
-	publicv1.UnimplementedHostClassesServer
+type HostTypesServer struct {
+	publicv1.UnimplementedHostTypesServer
 
 	logger    *slog.Logger
-	delegate  privatev1.HostClassesServer
-	inMapper  *GenericMapper[*publicv1.HostClass, *privatev1.HostClass]
-	outMapper *GenericMapper[*privatev1.HostClass, *publicv1.HostClass]
+	delegate  privatev1.HostTypesServer
+	inMapper  *GenericMapper[*publicv1.HostType, *privatev1.HostType]
+	outMapper *GenericMapper[*privatev1.HostType, *publicv1.HostType]
 }
 
-func NewHostClassesServer() *HostClassesServerBuilder {
-	return &HostClassesServerBuilder{}
+func NewHostTypesServer() *HostTypesServerBuilder {
+	return &HostTypesServerBuilder{}
 }
 
 // SetLogger sets the logger to use. This is mandatory.
-func (b *HostClassesServerBuilder) SetLogger(value *slog.Logger) *HostClassesServerBuilder {
+func (b *HostTypesServerBuilder) SetLogger(value *slog.Logger) *HostTypesServerBuilder {
 	b.logger = value
 	return b
 }
 
 // SetNotifier sets the notifier to use. This is optional.
-func (b *HostClassesServerBuilder) SetNotifier(value *database.Notifier) *HostClassesServerBuilder {
+func (b *HostTypesServerBuilder) SetNotifier(value *database.Notifier) *HostTypesServerBuilder {
 	b.notifier = value
 	return b
 }
 
 // SetAttributionLogic sets the attribution logic to use. This is optional.
-func (b *HostClassesServerBuilder) SetAttributionLogic(value auth.AttributionLogic) *HostClassesServerBuilder {
+func (b *HostTypesServerBuilder) SetAttributionLogic(value auth.AttributionLogic) *HostTypesServerBuilder {
 	b.attributionLogic = value
 	return b
 }
 
 // SetTenancyLogic sets the tenancy logic to use. This is mandatory.
-func (b *HostClassesServerBuilder) SetTenancyLogic(value auth.TenancyLogic) *HostClassesServerBuilder {
+func (b *HostTypesServerBuilder) SetTenancyLogic(value auth.TenancyLogic) *HostTypesServerBuilder {
 	b.tenancyLogic = value
 	return b
 }
 
 // SetMetricsRegisterer sets the Prometheus registerer used to register the metrics for the underlying database
 // access objects. This is optional. If not set, no metrics will be recorded.
-func (b *HostClassesServerBuilder) SetMetricsRegisterer(value prometheus.Registerer) *HostClassesServerBuilder {
+func (b *HostTypesServerBuilder) SetMetricsRegisterer(value prometheus.Registerer) *HostTypesServerBuilder {
 	b.metricsRegisterer = value
 	return b
 }
 
-func (b *HostClassesServerBuilder) Build() (result *HostClassesServer, err error) {
+func (b *HostTypesServerBuilder) Build() (result *HostTypesServer, err error) {
 	// Check parameters:
 	if b.logger == nil {
 		err = errors.New("logger is mandatory")
@@ -94,14 +94,14 @@ func (b *HostClassesServerBuilder) Build() (result *HostClassesServer, err error
 	}
 
 	// Create the mappers:
-	inMapper, err := NewGenericMapper[*publicv1.HostClass, *privatev1.HostClass]().
+	inMapper, err := NewGenericMapper[*publicv1.HostType, *privatev1.HostType]().
 		SetLogger(b.logger).
 		SetStrict(true).
 		Build()
 	if err != nil {
 		return
 	}
-	outMapper, err := NewGenericMapper[*privatev1.HostClass, *publicv1.HostClass]().
+	outMapper, err := NewGenericMapper[*privatev1.HostType, *publicv1.HostType]().
 		SetLogger(b.logger).
 		SetStrict(false).
 		Build()
@@ -110,7 +110,7 @@ func (b *HostClassesServerBuilder) Build() (result *HostClassesServer, err error
 	}
 
 	// Create the private server to delegate to:
-	delegate, err := NewPrivateHostClassesServer().
+	delegate, err := NewPrivateHostTypesServer().
 		SetLogger(b.logger).
 		SetNotifier(b.notifier).
 		SetAttributionLogic(b.attributionLogic).
@@ -122,7 +122,7 @@ func (b *HostClassesServerBuilder) Build() (result *HostClassesServer, err error
 	}
 
 	// Create and populate the object:
-	result = &HostClassesServer{
+	result = &HostTypesServer{
 		logger:    b.logger,
 		delegate:  delegate,
 		inMapper:  inMapper,
@@ -131,10 +131,10 @@ func (b *HostClassesServerBuilder) Build() (result *HostClassesServer, err error
 	return
 }
 
-func (s *HostClassesServer) List(ctx context.Context,
-	request *publicv1.HostClassesListRequest) (response *publicv1.HostClassesListResponse, err error) {
+func (s *HostTypesServer) List(ctx context.Context,
+	request *publicv1.HostTypesListRequest) (response *publicv1.HostTypesListResponse, err error) {
 	// Create private request with same parameters:
-	privateRequest := &privatev1.HostClassesListRequest{}
+	privateRequest := &privatev1.HostTypesListRequest{}
 	privateRequest.SetOffset(request.GetOffset())
 	privateRequest.SetLimit(request.GetLimit())
 	privateRequest.SetFilter(request.GetFilter())
@@ -148,33 +148,33 @@ func (s *HostClassesServer) List(ctx context.Context,
 
 	// Map private response to public format:
 	privateItems := privateResponse.GetItems()
-	publicItems := make([]*publicv1.HostClass, len(privateItems))
+	publicItems := make([]*publicv1.HostType, len(privateItems))
 	for i, privateItem := range privateItems {
-		publicItem := &publicv1.HostClass{}
+		publicItem := &publicv1.HostType{}
 		err = s.outMapper.Copy(ctx, privateItem, publicItem)
 		if err != nil {
 			s.logger.ErrorContext(
 				ctx,
-				"Failed to map private host class to public",
+				"Failed to map private host type to public",
 				slog.Any("error", err),
 			)
-			return nil, grpcstatus.Errorf(grpccodes.Internal, "failed to process host classes")
+			return nil, grpcstatus.Errorf(grpccodes.Internal, "failed to process host types")
 		}
 		publicItems[i] = publicItem
 	}
 
 	// Create the public response:
-	response = &publicv1.HostClassesListResponse{}
+	response = &publicv1.HostTypesListResponse{}
 	response.SetSize(privateResponse.GetSize())
 	response.SetTotal(privateResponse.GetTotal())
 	response.SetItems(publicItems)
 	return
 }
 
-func (s *HostClassesServer) Get(ctx context.Context,
-	request *publicv1.HostClassesGetRequest) (response *publicv1.HostClassesGetResponse, err error) {
+func (s *HostTypesServer) Get(ctx context.Context,
+	request *publicv1.HostTypesGetRequest) (response *publicv1.HostTypesGetResponse, err error) {
 	// Create private request:
-	privateRequest := &privatev1.HostClassesGetRequest{}
+	privateRequest := &privatev1.HostTypesGetRequest{}
 	privateRequest.SetId(request.GetId())
 
 	// Delegate to private server:
@@ -184,110 +184,110 @@ func (s *HostClassesServer) Get(ctx context.Context,
 	}
 
 	// Map private response to public format:
-	privateHostClass := privateResponse.GetObject()
-	publicHostClass := &publicv1.HostClass{}
-	err = s.outMapper.Copy(ctx, privateHostClass, publicHostClass)
+	privateHostType := privateResponse.GetObject()
+	publicHostType := &publicv1.HostType{}
+	err = s.outMapper.Copy(ctx, privateHostType, publicHostType)
 	if err != nil {
 		s.logger.ErrorContext(
 			ctx,
-			"Failed to map private host class to public",
+			"Failed to map private host type to public",
 			slog.Any("error", err),
 		)
-		return nil, grpcstatus.Errorf(grpccodes.Internal, "failed to process host class")
+		return nil, grpcstatus.Errorf(grpccodes.Internal, "failed to process host type")
 	}
 
 	// Create the public response:
-	response = &publicv1.HostClassesGetResponse{}
-	response.SetObject(publicHostClass)
+	response = &publicv1.HostTypesGetResponse{}
+	response.SetObject(publicHostType)
 	return
 }
 
-func (s *HostClassesServer) Create(ctx context.Context,
-	request *publicv1.HostClassesCreateRequest) (response *publicv1.HostClassesCreateResponse, err error) {
-	// Map the public host class to private format:
-	publicHostClass := request.GetObject()
-	if publicHostClass == nil {
+func (s *HostTypesServer) Create(ctx context.Context,
+	request *publicv1.HostTypesCreateRequest) (response *publicv1.HostTypesCreateResponse, err error) {
+	// Map the public host type to private format:
+	publicHostType := request.GetObject()
+	if publicHostType == nil {
 		err = grpcstatus.Errorf(grpccodes.InvalidArgument, "object is mandatory")
 		return
 	}
-	privateHostClass := &privatev1.HostClass{}
-	err = s.inMapper.Copy(ctx, publicHostClass, privateHostClass)
+	privateHostType := &privatev1.HostType{}
+	err = s.inMapper.Copy(ctx, publicHostType, privateHostType)
 	if err != nil {
 		s.logger.ErrorContext(
 			ctx,
-			"Failed to map public host class to private",
+			"Failed to map public host type to private",
 			slog.Any("error", err),
 		)
-		err = grpcstatus.Errorf(grpccodes.Internal, "failed to process host class")
+		err = grpcstatus.Errorf(grpccodes.Internal, "failed to process host type")
 		return
 	}
 
 	// Delegate to the private server:
-	privateRequest := &privatev1.HostClassesCreateRequest{}
-	privateRequest.SetObject(privateHostClass)
+	privateRequest := &privatev1.HostTypesCreateRequest{}
+	privateRequest.SetObject(privateHostType)
 	privateResponse, err := s.delegate.Create(ctx, privateRequest)
 	if err != nil {
 		return nil, err
 	}
 
 	// Map the private response back to public format:
-	createdPrivateHostClass := privateResponse.GetObject()
-	createdPublicHostClass := &publicv1.HostClass{}
-	err = s.outMapper.Copy(ctx, createdPrivateHostClass, createdPublicHostClass)
+	createdPrivateHostType := privateResponse.GetObject()
+	createdPublicHostType := &publicv1.HostType{}
+	err = s.outMapper.Copy(ctx, createdPrivateHostType, createdPublicHostType)
 	if err != nil {
 		s.logger.ErrorContext(
 			ctx,
-			"Failed to map private host class to public",
+			"Failed to map private host type to public",
 			slog.Any("error", err),
 		)
-		err = grpcstatus.Errorf(grpccodes.Internal, "failed to process host class")
+		err = grpcstatus.Errorf(grpccodes.Internal, "failed to process host type")
 		return
 	}
 
 	// Create the public response:
-	response = &publicv1.HostClassesCreateResponse{}
-	response.SetObject(createdPublicHostClass)
+	response = &publicv1.HostTypesCreateResponse{}
+	response.SetObject(createdPublicHostType)
 	return
 }
 
-func (s *HostClassesServer) Update(ctx context.Context,
-	request *publicv1.HostClassesUpdateRequest) (response *publicv1.HostClassesUpdateResponse, err error) {
+func (s *HostTypesServer) Update(ctx context.Context,
+	request *publicv1.HostTypesUpdateRequest) (response *publicv1.HostTypesUpdateResponse, err error) {
 	// Validate the request:
-	publicHostClass := request.GetObject()
-	if publicHostClass == nil {
+	publicHostType := request.GetObject()
+	if publicHostType == nil {
 		err = grpcstatus.Errorf(grpccodes.InvalidArgument, "object is mandatory")
 		return
 	}
-	id := publicHostClass.GetId()
+	id := publicHostType.GetId()
 	if id == "" {
 		err = grpcstatus.Errorf(grpccodes.InvalidArgument, "object identifier is mandatory")
 		return
 	}
 
 	// Get the existing object from the private server:
-	getRequest := &privatev1.HostClassesGetRequest{}
+	getRequest := &privatev1.HostTypesGetRequest{}
 	getRequest.SetId(id)
 	getResponse, err := s.delegate.Get(ctx, getRequest)
 	if err != nil {
 		return nil, err
 	}
-	existingPrivateHostClass := getResponse.GetObject()
+	existingPrivateHostType := getResponse.GetObject()
 
 	// Map the public changes to the existing private object (preserving private data):
-	err = s.inMapper.Copy(ctx, publicHostClass, existingPrivateHostClass)
+	err = s.inMapper.Copy(ctx, publicHostType, existingPrivateHostType)
 	if err != nil {
 		s.logger.ErrorContext(
 			ctx,
-			"Failed to map public host class to private",
+			"Failed to map public host type to private",
 			slog.Any("error", err),
 		)
-		err = grpcstatus.Errorf(grpccodes.Internal, "failed to process host class")
+		err = grpcstatus.Errorf(grpccodes.Internal, "failed to process host type")
 		return
 	}
 
 	// Delegate to the private server with the merged object:
-	privateRequest := &privatev1.HostClassesUpdateRequest{}
-	privateRequest.SetObject(existingPrivateHostClass)
+	privateRequest := &privatev1.HostTypesUpdateRequest{}
+	privateRequest.SetObject(existingPrivateHostType)
 	privateRequest.SetLock(request.GetLock())
 	privateResponse, err := s.delegate.Update(ctx, privateRequest)
 	if err != nil {
@@ -295,29 +295,29 @@ func (s *HostClassesServer) Update(ctx context.Context,
 	}
 
 	// Map the private response back to public format:
-	updatedPrivateHostClass := privateResponse.GetObject()
-	updatedPublicHostClass := &publicv1.HostClass{}
-	err = s.outMapper.Copy(ctx, updatedPrivateHostClass, updatedPublicHostClass)
+	updatedPrivateHostType := privateResponse.GetObject()
+	updatedPublicHostType := &publicv1.HostType{}
+	err = s.outMapper.Copy(ctx, updatedPrivateHostType, updatedPublicHostType)
 	if err != nil {
 		s.logger.ErrorContext(
 			ctx,
-			"Failed to map private host class to public",
+			"Failed to map private host type to public",
 			slog.Any("error", err),
 		)
-		err = grpcstatus.Errorf(grpccodes.Internal, "failed to process host class")
+		err = grpcstatus.Errorf(grpccodes.Internal, "failed to process host type")
 		return
 	}
 
 	// Create the public response:
-	response = &publicv1.HostClassesUpdateResponse{}
-	response.SetObject(updatedPublicHostClass)
+	response = &publicv1.HostTypesUpdateResponse{}
+	response.SetObject(updatedPublicHostType)
 	return
 }
 
-func (s *HostClassesServer) Delete(ctx context.Context,
-	request *publicv1.HostClassesDeleteRequest) (response *publicv1.HostClassesDeleteResponse, err error) {
+func (s *HostTypesServer) Delete(ctx context.Context,
+	request *publicv1.HostTypesDeleteRequest) (response *publicv1.HostTypesDeleteResponse, err error) {
 	// Create private request:
-	privateRequest := &privatev1.HostClassesDeleteRequest{}
+	privateRequest := &privatev1.HostTypesDeleteRequest{}
 	privateRequest.SetId(request.GetId())
 
 	// Delegate to private server:
@@ -327,6 +327,6 @@ func (s *HostClassesServer) Delete(ctx context.Context,
 	}
 
 	// Create the public response:
-	response = &publicv1.HostClassesDeleteResponse{}
+	response = &publicv1.HostTypesDeleteResponse{}
 	return
 }

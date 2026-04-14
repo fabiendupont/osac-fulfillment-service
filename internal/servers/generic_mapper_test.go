@@ -125,12 +125,12 @@ var _ = Describe("Generic mapper", func() {
 				Spec: privatev1.ClusterSpec_builder{
 					NodeSets: map[string]*privatev1.ClusterNodeSet{
 						"my_node_set": privatev1.ClusterNodeSet_builder{
-							HostClass: "my_host_class",
-							Size:      123,
+							HostType: "my_host_type",
+							Size:     123,
 						}.Build(),
 						"your_node_set": privatev1.ClusterNodeSet_builder{
-							HostClass: "your_host_class",
-							Size:      456,
+							HostType: "your_host_type",
+							Size:     456,
 						}.Build(),
 					},
 				}.Build(),
@@ -140,12 +140,12 @@ var _ = Describe("Generic mapper", func() {
 				Spec: publicv1.ClusterSpec_builder{
 					NodeSets: map[string]*publicv1.ClusterNodeSet{
 						"my_node_set": publicv1.ClusterNodeSet_builder{
-							HostClass: "my_host_class",
-							Size:      123,
+							HostType: "my_host_type",
+							Size:     123,
 						}.Build(),
 						"your_node_set": publicv1.ClusterNodeSet_builder{
-							HostClass: "your_host_class",
-							Size:      456,
+							HostType: "your_host_type",
+							Size:     456,
 						}.Build(),
 					},
 				}.Build(),
@@ -323,8 +323,8 @@ var _ = Describe("Generic mapper", func() {
 				Spec: privatev1.ClusterSpec_builder{
 					NodeSets: map[string]*privatev1.ClusterNodeSet{
 						"new_node_set": privatev1.ClusterNodeSet_builder{
-							HostClass: "new_host_class",
-							Size:      789,
+							HostType: "new_host_type",
+							Size:     789,
 						}.Build(),
 					},
 				}.Build(),
@@ -333,8 +333,8 @@ var _ = Describe("Generic mapper", func() {
 				Spec: publicv1.ClusterSpec_builder{
 					NodeSets: map[string]*publicv1.ClusterNodeSet{
 						"existing_node_set": publicv1.ClusterNodeSet_builder{
-							HostClass: "existing_host_class",
-							Size:      456,
+							HostType: "existing_host_type",
+							Size:     456,
 						}.Build(),
 					},
 				}.Build(),
@@ -343,12 +343,12 @@ var _ = Describe("Generic mapper", func() {
 				Spec: publicv1.ClusterSpec_builder{
 					NodeSets: map[string]*publicv1.ClusterNodeSet{
 						"existing_node_set": publicv1.ClusterNodeSet_builder{
-							HostClass: "existing_host_class",
-							Size:      456,
+							HostType: "existing_host_type",
+							Size:     456,
 						}.Build(),
 						"new_node_set": publicv1.ClusterNodeSet_builder{
-							HostClass: "new_host_class",
-							Size:      789,
+							HostType: "new_host_type",
+							Size:     789,
 						}.Build(),
 					},
 				}.Build(),
@@ -360,8 +360,8 @@ var _ = Describe("Generic mapper", func() {
 				Spec: privatev1.ClusterSpec_builder{
 					NodeSets: map[string]*privatev1.ClusterNodeSet{
 						"node_set": privatev1.ClusterNodeSet_builder{
-							HostClass: "updated_host_class",
-							Size:      999,
+							HostType: "updated_host_type",
+							Size:     999,
 						}.Build(),
 					},
 				}.Build(),
@@ -370,8 +370,8 @@ var _ = Describe("Generic mapper", func() {
 				Spec: publicv1.ClusterSpec_builder{
 					NodeSets: map[string]*publicv1.ClusterNodeSet{
 						"node_set": publicv1.ClusterNodeSet_builder{
-							HostClass: "original_host_class",
-							Size:      123,
+							HostType: "original_host_type",
+							Size:     123,
 						}.Build(),
 					},
 				}.Build(),
@@ -380,8 +380,8 @@ var _ = Describe("Generic mapper", func() {
 				Spec: publicv1.ClusterSpec_builder{
 					NodeSets: map[string]*publicv1.ClusterNodeSet{
 						"node_set": publicv1.ClusterNodeSet_builder{
-							HostClass: "updated_host_class",
-							Size:      999,
+							HostType: "updated_host_type",
+							Size:     999,
 						}.Build(),
 					},
 				}.Build(),

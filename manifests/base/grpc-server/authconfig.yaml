@@ -148,8 +148,8 @@ spec:
               "/osac.public.v1.ComputeInstances/List",
               "/osac.public.v1.ComputeInstances/Update",
               "/osac.public.v1.Events/Watch",
-              "/osac.public.v1.HostClasses/Get",
-              "/osac.public.v1.HostClasses/List",
+              "/osac.public.v1.HostTypes/Get",
+              "/osac.public.v1.HostTypes/List",
             }
           }
 

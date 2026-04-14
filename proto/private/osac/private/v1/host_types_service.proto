@@ -17,39 +17,39 @@ package osac.private.v1;
 
 import "google/api/annotations.proto";
 import "google/protobuf/field_mask.proto";
-import "osac/private/v1/host_class_type.proto";
+import "osac/private/v1/host_type_type.proto";
 
-message HostClassesListRequest {
+message HostTypesListRequest {
   optional int32 offset = 1;
   optional int32 limit = 2;
   optional string filter = 3;
   optional string order = 4;
 }
 
-message HostClassesListResponse {
+message HostTypesListResponse {
   int32 size = 3;
   int32 total = 4;
-  repeated HostClass items = 5;
+  repeated HostType items = 5;
 }
 
-message HostClassesGetRequest {
+message HostTypesGetRequest {
   string id = 1;
 }
 
-message HostClassesGetResponse {
-  HostClass object = 1;
+message HostTypesGetResponse {
+  HostType object = 1;
 }
 
-message HostClassesCreateRequest {
-  HostClass object = 1;
+message HostTypesCreateRequest {
+  HostType object = 1;
 }
 
-message HostClassesCreateResponse {
-  HostClass object = 1;
+message HostTypesCreateResponse {
+  HostType object = 1;
 }
 
-message HostClassesUpdateRequest {
-  HostClass object = 1;
+message HostTypesUpdateRequest {
+  HostType object = 1;
   google.protobuf.FieldMask update_mask = 2;
 
   // Lock enables optimistic locking. When set to true, the server verifies that the current version of the object
@@ -58,50 +58,50 @@ message HostClassesUpdateRequest {
   bool lock = 3;
 }
 
-message HostClassesUpdateResponse {
-  HostClass object = 1;
+message HostTypesUpdateResponse {
+  HostType object = 1;
 }
 
-message HostClassesDeleteRequest {
+message HostTypesDeleteRequest {
   string id = 1;
 }
 
-message HostClassesDeleteResponse {}
+message HostTypesDeleteResponse {}
 
-message HostClassesSignalRequest {
+message HostTypesSignalRequest {
   string id = 1;
 }
 
-message HostClassesSignalResponse {}
+message HostTypesSignalResponse {}
 
-service HostClasses {
-  rpc List(HostClassesListRequest) returns (HostClassesListResponse) {
-    option (google.api.http) = {get: "/api/private/v1/host_classes"};
+service HostTypes {
+  rpc List(HostTypesListRequest) returns (HostTypesListResponse) {
+    option (google.api.http) = {get: "/api/private/v1/host_types"};
   }
-  rpc Get(HostClassesGetRequest) returns (HostClassesGetResponse) {
+  rpc Get(HostTypesGetRequest) returns (HostTypesGetResponse) {
     option (google.api.http) = {
-      get: "/api/private/v1/host_classes/{id}"
+      get: "/api/private/v1/host_types/{id}"
       response_body: "object"
     };
   }
-  rpc Create(HostClassesCreateRequest) returns (HostClassesCreateResponse) {
+  rpc Create(HostTypesCreateRequest) returns (HostTypesCreateResponse) {
     option (google.api.http) = {
-      post: "/api/private/v1/host_classes"
+      post: "/api/private/v1/host_types"
       body: "object"
       response_body: "object"
     };
   }
-  rpc Update(HostClassesUpdateRequest) returns (HostClassesUpdateResponse) {
+  rpc Update(HostTypesUpdateRequest) returns (HostTypesUpdateResponse) {
     option (google.api.http) = {
-      patch: "/api/private/v1/host_classes/{object.id}"
+      patch: "/api/private/v1/host_types/{object.id}"
       body: "object"
       response_body: "object"
     };
   }
-  rpc Delete(HostClassesDeleteRequest) returns (HostClassesDeleteResponse) {
-    option (google.api.http) = {delete: "/api/private/v1/host_classes/{id}"};
+  rpc Delete(HostTypesDeleteRequest) returns (HostTypesDeleteResponse) {
+    option (google.api.http) = {delete: "/api/private/v1/host_types/{id}"};
   }
 
   // Indicates that something changed in the object or the system that may require reconciling the object.
-  rpc Signal(HostClassesSignalRequest) returns (HostClassesSignalResponse) {}
+  rpc Signal(HostTypesSignalRequest) returns (HostTypesSignalResponse) {}
 }

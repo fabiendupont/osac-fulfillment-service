@@ -36,12 +36,12 @@ import (
 
 var _ = Describe("Cluster reconciler", func() {
 	var (
-		ctx               context.Context
-		clustersClient    publicv1.ClustersClient
-		hostClassesClient privatev1.HostClassesClient
-		hostClassId       string
-		templatesClient   privatev1.ClusterTemplatesClient
-		templateId        string
+		ctx             context.Context
+		clustersClient  publicv1.ClustersClient
+		hostTypesClient privatev1.HostTypesClient
+		hostTypeId      string
+		templatesClient privatev1.ClusterTemplatesClient
+		templateId      string
 	)
 
 	makeAny := func(value proto.Message) *anypb.Any {
@@ -56,14 +56,14 @@ var _ = Describe("Cluster reconciler", func() {
 
 		// Create the clients:
 		clustersClient = publicv1.NewClustersClient(tool.UserConn())
-		hostClassesClient = privatev1.NewHostClassesClient(tool.AdminConn())
+		hostTypesClient = privatev1.NewHostTypesClient(tool.AdminConn())
 		templatesClient = privatev1.NewClusterTemplatesClient(tool.AdminConn())
 
-		// Create a host class for testing:
-		hostClassId = fmt.Sprintf("my_host_class_%s", uuid.New())
-		_, err := hostClassesClient.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-			Object: privatev1.HostClass_builder{
-				Id: hostClassId,
+		// Create a host type for testing:
+		hostTypeId = fmt.Sprintf("my_host_type_%s", uuid.New())
+		_, err := hostTypesClient.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+			Object: privatev1.HostType_builder{
+				Id: hostTypeId,
 			}.Build(),
 		}.Build())
 		Expect(err).ToNot(HaveOccurred())
@@ -94,8 +94,8 @@ var _ = Describe("Cluster reconciler", func() {
 				},
 				NodeSets: map[string]*privatev1.ClusterTemplateNodeSet{
 					"my_node_set": privatev1.ClusterTemplateNodeSet_builder{
-						HostClass: hostClassId,
-						Size:      3,
+						HostType: hostTypeId,
+						Size:     3,
 					}.Build(),
 				},
 			}.Build(),
@@ -157,7 +157,7 @@ var _ = Describe("Cluster reconciler", func() {
 		Expect(ok).To(BeTrue())
 		Expect(nodeRequests).To(HaveLen(1))
 		nodeRequest := nodeRequests[0].(map[string]any)
-		Expect(nodeRequest["resourceClass"]).To(Equal(hostClassId))
+		Expect(nodeRequest["resourceClass"]).To(Equal(hostTypeId))
 		Expect(nodeRequest["numberOfNodes"]).To(BeNumerically("==", 3))
 
 		// Verify that the template parameters are reflected in the Kubernetes object:
@@ -239,8 +239,8 @@ var _ = Describe("Cluster reconciler", func() {
 					},
 					NodeSets: map[string]*publicv1.ClusterNodeSet{
 						"my_node_set": publicv1.ClusterNodeSet_builder{
-							HostClass: hostClassId,
-							Size:      3,
+							HostType: hostTypeId,
+							Size:     3,
 						}.Build(),
 					},
 				}.Build(),
@@ -279,7 +279,7 @@ var _ = Describe("Cluster reconciler", func() {
 		Expect(found).To(BeTrue())
 		Expect(nodeRequests).To(HaveLen(1))
 		nodeRequest := nodeRequests[0].(map[string]any)
-		Expect(nodeRequest["resourceClass"]).To(Equal(hostClassId))
+		Expect(nodeRequest["resourceClass"]).To(Equal(hostTypeId))
 		Expect(nodeRequest["numberOfNodes"]).To(BeNumerically("==", 3))
 
 		// Update the cluster to change the node set size
@@ -293,8 +293,8 @@ var _ = Describe("Cluster reconciler", func() {
 					},
 					NodeSets: map[string]*publicv1.ClusterNodeSet{
 						"my_node_set": publicv1.ClusterNodeSet_builder{
-							HostClass: hostClassId,
-							Size:      5,
+							HostType: hostTypeId,
+							Size:     5,
 						}.Build(),
 					},
 				}.Build(),
@@ -316,7 +316,7 @@ var _ = Describe("Cluster reconciler", func() {
 				g.Expect(found).To(BeTrue())
 				g.Expect(nodeRequests).To(HaveLen(1))
 				nodeRequest := nodeRequests[0].(map[string]any)
-				g.Expect(nodeRequest["resourceClass"]).To(Equal(hostClassId))
+				g.Expect(nodeRequest["resourceClass"]).To(Equal(hostTypeId))
 				g.Expect(nodeRequest["numberOfNodes"]).To(BeNumerically("==", 5))
 			},
 			time.Minute,

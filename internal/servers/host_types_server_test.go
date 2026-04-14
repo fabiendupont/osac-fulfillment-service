@@ -27,7 +27,7 @@ import (
 	"github.com/osac-project/fulfillment-service/internal/database/dao"
 )
 
-var _ = Describe("Host classes server", func() {
+var _ = Describe("Host types server", func() {
 	var (
 		ctx context.Context
 		tx  database.Tx
@@ -63,13 +63,13 @@ var _ = Describe("Host classes server", func() {
 		ctx = database.TxIntoContext(ctx, tx)
 
 		// Create the tables:
-		err = dao.CreateTables[*publicv1.HostClass](ctx)
+		err = dao.CreateTables[*publicv1.HostType](ctx)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	Describe("Creation", func() {
 		It("Can be built if all the required parameters are set", func() {
-			server, err := NewHostClassesServer().
+			server, err := NewHostTypesServer().
 				SetLogger(logger).
 				SetAttributionLogic(attribution).
 				SetTenancyLogic(tenancy).
@@ -79,7 +79,7 @@ var _ = Describe("Host classes server", func() {
 		})
 
 		It("Fails if logger is not set", func() {
-			server, err := NewHostClassesServer().
+			server, err := NewHostTypesServer().
 				SetAttributionLogic(attribution).
 				SetTenancyLogic(tenancy).
 				Build()
@@ -88,7 +88,7 @@ var _ = Describe("Host classes server", func() {
 		})
 
 		It("Fails if attribution logic is not set", func() {
-			server, err := NewHostClassesServer().
+			server, err := NewHostTypesServer().
 				SetLogger(logger).
 				SetTenancyLogic(tenancy).
 				Build()
@@ -98,7 +98,7 @@ var _ = Describe("Host classes server", func() {
 		})
 
 		It("Fails if tenancy logic is not set", func() {
-			server, err := NewHostClassesServer().
+			server, err := NewHostTypesServer().
 				SetLogger(logger).
 				SetAttributionLogic(attribution).
 				Build()
@@ -108,13 +108,13 @@ var _ = Describe("Host classes server", func() {
 	})
 
 	Describe("Behaviour", func() {
-		var server *HostClassesServer
+		var server *HostTypesServer
 
 		BeforeEach(func() {
 			var err error
 
 			// Create the server:
-			server, err = NewHostClassesServer().
+			server, err = NewHostTypesServer().
 				SetLogger(logger).
 				SetAttributionLogic(attribution).
 				SetTenancyLogic(tenancy).
@@ -123,8 +123,8 @@ var _ = Describe("Host classes server", func() {
 		})
 
 		It("Creates object", func() {
-			response, err := server.Create(ctx, publicv1.HostClassesCreateRequest_builder{
-				Object: publicv1.HostClass_builder{}.Build(),
+			response, err := server.Create(ctx, publicv1.HostTypesCreateRequest_builder{
+				Object: publicv1.HostType_builder{}.Build(),
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(response).ToNot(BeNil())
@@ -137,14 +137,14 @@ var _ = Describe("Host classes server", func() {
 			// Create a few objects:
 			const count = 10
 			for range count {
-				_, err := server.Create(ctx, publicv1.HostClassesCreateRequest_builder{
-					Object: publicv1.HostClass_builder{}.Build(),
+				_, err := server.Create(ctx, publicv1.HostTypesCreateRequest_builder{
+					Object: publicv1.HostType_builder{}.Build(),
 				}.Build())
 				Expect(err).ToNot(HaveOccurred())
 			}
 
 			// List the objects:
-			response, err := server.List(ctx, publicv1.HostClassesListRequest_builder{}.Build())
+			response, err := server.List(ctx, publicv1.HostTypesListRequest_builder{}.Build())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(response).ToNot(BeNil())
 			items := response.GetItems()
@@ -155,14 +155,14 @@ var _ = Describe("Host classes server", func() {
 			// Create a few objects:
 			const count = 10
 			for range count {
-				_, err := server.Create(ctx, publicv1.HostClassesCreateRequest_builder{
-					Object: publicv1.HostClass_builder{}.Build(),
+				_, err := server.Create(ctx, publicv1.HostTypesCreateRequest_builder{
+					Object: publicv1.HostType_builder{}.Build(),
 				}.Build())
 				Expect(err).ToNot(HaveOccurred())
 			}
 
 			// List the objects:
-			response, err := server.List(ctx, publicv1.HostClassesListRequest_builder{
+			response, err := server.List(ctx, publicv1.HostTypesListRequest_builder{
 				Limit: proto.Int32(1),
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
@@ -173,14 +173,14 @@ var _ = Describe("Host classes server", func() {
 			// Create a few objects:
 			const count = 10
 			for range count {
-				_, err := server.Create(ctx, publicv1.HostClassesCreateRequest_builder{
-					Object: publicv1.HostClass_builder{}.Build(),
+				_, err := server.Create(ctx, publicv1.HostTypesCreateRequest_builder{
+					Object: publicv1.HostType_builder{}.Build(),
 				}.Build())
 				Expect(err).ToNot(HaveOccurred())
 			}
 
 			// List the objects:
-			response, err := server.List(ctx, publicv1.HostClassesListRequest_builder{
+			response, err := server.List(ctx, publicv1.HostTypesListRequest_builder{
 				Offset: proto.Int32(1),
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
@@ -190,10 +190,10 @@ var _ = Describe("Host classes server", func() {
 		It("List objects with filter", func() {
 			// Create a few objects:
 			const count = 10
-			var objects []*publicv1.HostClass
+			var objects []*publicv1.HostType
 			for range count {
-				response, err := server.Create(ctx, publicv1.HostClassesCreateRequest_builder{
-					Object: publicv1.HostClass_builder{}.Build(),
+				response, err := server.Create(ctx, publicv1.HostTypesCreateRequest_builder{
+					Object: publicv1.HostType_builder{}.Build(),
 				}.Build())
 				Expect(err).ToNot(HaveOccurred())
 				objects = append(objects, response.GetObject())
@@ -201,7 +201,7 @@ var _ = Describe("Host classes server", func() {
 
 			// List the objects:
 			for _, object := range objects {
-				response, err := server.List(ctx, publicv1.HostClassesListRequest_builder{
+				response, err := server.List(ctx, publicv1.HostTypesListRequest_builder{
 					Filter: proto.String(fmt.Sprintf("this.id == '%s'", object.GetId())),
 				}.Build())
 				Expect(err).ToNot(HaveOccurred())
@@ -212,13 +212,13 @@ var _ = Describe("Host classes server", func() {
 
 		It("Get object", func() {
 			// Create the object:
-			createResponse, err := server.Create(ctx, publicv1.HostClassesCreateRequest_builder{
-				Object: publicv1.HostClass_builder{}.Build(),
+			createResponse, err := server.Create(ctx, publicv1.HostTypesCreateRequest_builder{
+				Object: publicv1.HostType_builder{}.Build(),
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
 
 			// Get it:
-			getResponse, err := server.Get(ctx, publicv1.HostClassesGetRequest_builder{
+			getResponse, err := server.Get(ctx, publicv1.HostTypesGetRequest_builder{
 				Id: createResponse.GetObject().GetId(),
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
@@ -227,8 +227,8 @@ var _ = Describe("Host classes server", func() {
 
 		It("Update object", func() {
 			// Create the object:
-			createResponse, err := server.Create(ctx, publicv1.HostClassesCreateRequest_builder{
-				Object: publicv1.HostClass_builder{
+			createResponse, err := server.Create(ctx, publicv1.HostTypesCreateRequest_builder{
+				Object: publicv1.HostType_builder{
 					Title:       "My title",
 					Description: "My description.",
 				}.Build(),
@@ -237,8 +237,8 @@ var _ = Describe("Host classes server", func() {
 			object := createResponse.GetObject()
 
 			// Update the object:
-			updateResponse, err := server.Update(ctx, publicv1.HostClassesUpdateRequest_builder{
-				Object: publicv1.HostClass_builder{
+			updateResponse, err := server.Update(ctx, publicv1.HostTypesUpdateRequest_builder{
+				Object: publicv1.HostType_builder{
 					Id:          object.GetId(),
 					Title:       "Your title",
 					Description: "Your description.",
@@ -249,7 +249,7 @@ var _ = Describe("Host classes server", func() {
 			Expect(updateResponse.GetObject().GetDescription()).To(Equal("Your description."))
 
 			// Get and verify:
-			getResponse, err := server.Get(ctx, publicv1.HostClassesGetRequest_builder{
+			getResponse, err := server.Get(ctx, publicv1.HostTypesGetRequest_builder{
 				Id: object.GetId(),
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
@@ -259,8 +259,8 @@ var _ = Describe("Host classes server", func() {
 
 		It("Delete object", func() {
 			// Create the object:
-			createResponse, err := server.Create(ctx, publicv1.HostClassesCreateRequest_builder{
-				Object: publicv1.HostClass_builder{}.Build(),
+			createResponse, err := server.Create(ctx, publicv1.HostTypesCreateRequest_builder{
+				Object: publicv1.HostType_builder{}.Build(),
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
 			object := createResponse.GetObject()
@@ -270,19 +270,19 @@ var _ = Describe("Host classes server", func() {
 			// because this is a public object, and public objects don't have the finalizers field.
 			_, err = tx.Exec(
 				ctx,
-				`update host_classes set finalizers = '{"a"}' where id = $1`,
+				`update host_types set finalizers = '{"a"}' where id = $1`,
 				object.GetId(),
 			)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Delete the object:
-			_, err = server.Delete(ctx, publicv1.HostClassesDeleteRequest_builder{
+			_, err = server.Delete(ctx, publicv1.HostTypesDeleteRequest_builder{
 				Id: object.GetId(),
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
 
 			// Get and verify:
-			getResponse, err := server.Get(ctx, publicv1.HostClassesGetRequest_builder{
+			getResponse, err := server.Get(ctx, publicv1.HostTypesGetRequest_builder{
 				Id: object.GetId(),
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())

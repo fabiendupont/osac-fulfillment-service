@@ -472,9 +472,9 @@ func (c *runnerContext) run(cmd *cobra.Command, argv []string) error {
 	}
 	privatev1.RegisterClustersServer(grpcServer, privateClustersServer)
 
-	// Create the host classes server:
-	c.logger.InfoContext(ctx, "Creating host classes server")
-	hostClassesServer, err := servers.NewHostClassesServer().
+	// Create the host types server:
+	c.logger.InfoContext(ctx, "Creating host types server")
+	hostTypesServer, err := servers.NewHostTypesServer().
 		SetLogger(c.logger).
 		SetNotifier(notifier).
 		SetAttributionLogic(publicAttributionLogic).
@@ -482,13 +482,13 @@ func (c *runnerContext) run(cmd *cobra.Command, argv []string) error {
 		SetMetricsRegisterer(metricsRegisterer).
 		Build()
 	if err != nil {
-		return fmt.Errorf("failed to create host classes server: %w", err)
+		return fmt.Errorf("failed to create host types server: %w", err)
 	}
-	publicv1.RegisterHostClassesServer(grpcServer, hostClassesServer)
+	publicv1.RegisterHostTypesServer(grpcServer, hostTypesServer)
 
-	// Create the private host classes server:
-	c.logger.InfoContext(ctx, "Creating private host classes server")
-	privateHostClassesServer, err := servers.NewPrivateHostClassesServer().
+	// Create the private host types server:
+	c.logger.InfoContext(ctx, "Creating private host types server")
+	privateHostTypesServer, err := servers.NewPrivateHostTypesServer().
 		SetLogger(c.logger).
 		SetNotifier(notifier).
 		SetAttributionLogic(privateAttributionLogic).
@@ -496,9 +496,9 @@ func (c *runnerContext) run(cmd *cobra.Command, argv []string) error {
 		SetMetricsRegisterer(metricsRegisterer).
 		Build()
 	if err != nil {
-		return fmt.Errorf("failed to create private host classes server: %w", err)
+		return fmt.Errorf("failed to create private host types server: %w", err)
 	}
-	privatev1.RegisterHostClassesServer(grpcServer, privateHostClassesServer)
+	privatev1.RegisterHostTypesServer(grpcServer, privateHostTypesServer)
 
 	// Create the compute instance templates server:
 	c.logger.InfoContext(ctx, "Creating compute instance templates server")

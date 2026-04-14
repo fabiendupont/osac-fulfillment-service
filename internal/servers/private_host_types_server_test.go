@@ -29,7 +29,7 @@ import (
 	"github.com/osac-project/fulfillment-service/internal/database/dao"
 )
 
-var _ = Describe("Private host classes server", func() {
+var _ = Describe("Private host types server", func() {
 	var (
 		ctx context.Context
 		tx  database.Tx
@@ -65,13 +65,13 @@ var _ = Describe("Private host classes server", func() {
 		ctx = database.TxIntoContext(ctx, tx)
 
 		// Create the tables:
-		err = dao.CreateTables[*privatev1.HostClass](ctx)
+		err = dao.CreateTables[*privatev1.HostType](ctx)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	Describe("Creation", func() {
 		It("Can be built if all the required parameters are set", func() {
-			server, err := NewPrivateHostClassesServer().
+			server, err := NewPrivateHostTypesServer().
 				SetLogger(logger).
 				SetAttributionLogic(attribution).
 				SetTenancyLogic(tenancy).
@@ -81,7 +81,7 @@ var _ = Describe("Private host classes server", func() {
 		})
 
 		It("Fails if logger is not set", func() {
-			server, err := NewPrivateHostClassesServer().
+			server, err := NewPrivateHostTypesServer().
 				SetAttributionLogic(attribution).
 				SetTenancyLogic(tenancy).
 				Build()
@@ -90,7 +90,7 @@ var _ = Describe("Private host classes server", func() {
 		})
 
 		It("Fails if attribution logic is not set", func() {
-			server, err := NewPrivateHostClassesServer().
+			server, err := NewPrivateHostTypesServer().
 				SetLogger(logger).
 				SetTenancyLogic(tenancy).
 				Build()
@@ -100,7 +100,7 @@ var _ = Describe("Private host classes server", func() {
 		})
 
 		It("Fails if tenancy logic is not set", func() {
-			server, err := NewPrivateHostClassesServer().
+			server, err := NewPrivateHostTypesServer().
 				SetLogger(logger).
 				SetAttributionLogic(attribution).
 				Build()
@@ -110,13 +110,13 @@ var _ = Describe("Private host classes server", func() {
 	})
 
 	Describe("Behaviour", func() {
-		var server *PrivateHostClassesServer
+		var server *PrivateHostTypesServer
 
 		BeforeEach(func() {
 			var err error
 
 			// Create the server:
-			server, err = NewPrivateHostClassesServer().
+			server, err = NewPrivateHostTypesServer().
 				SetLogger(logger).
 				SetAttributionLogic(attribution).
 				SetTenancyLogic(tenancy).
@@ -125,8 +125,8 @@ var _ = Describe("Private host classes server", func() {
 		})
 
 		It("Creates object", func() {
-			response, err := server.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-				Object: privatev1.HostClass_builder{
+			response, err := server.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+				Object: privatev1.HostType_builder{
 					Title:       "My title",
 					Description: "My description.",
 				}.Build(),
@@ -142,8 +142,8 @@ var _ = Describe("Private host classes server", func() {
 			// Create a few objects:
 			const count = 10
 			for i := range count {
-				_, err := server.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-					Object: privatev1.HostClass_builder{
+				_, err := server.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+					Object: privatev1.HostType_builder{
 						Title:       fmt.Sprintf("My title %d", i),
 						Description: fmt.Sprintf("My description %d.", i),
 					}.Build(),
@@ -152,7 +152,7 @@ var _ = Describe("Private host classes server", func() {
 			}
 
 			// List the objects:
-			response, err := server.List(ctx, privatev1.HostClassesListRequest_builder{}.Build())
+			response, err := server.List(ctx, privatev1.HostTypesListRequest_builder{}.Build())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(response).ToNot(BeNil())
 			items := response.GetItems()
@@ -163,8 +163,8 @@ var _ = Describe("Private host classes server", func() {
 			// Create a few objects:
 			const count = 10
 			for i := range count {
-				_, err := server.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-					Object: privatev1.HostClass_builder{
+				_, err := server.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+					Object: privatev1.HostType_builder{
 						Title:       fmt.Sprintf("My title %d", i),
 						Description: fmt.Sprintf("My description %d.", i),
 					}.Build(),
@@ -173,7 +173,7 @@ var _ = Describe("Private host classes server", func() {
 			}
 
 			// List the objects:
-			response, err := server.List(ctx, privatev1.HostClassesListRequest_builder{
+			response, err := server.List(ctx, privatev1.HostTypesListRequest_builder{
 				Limit: proto.Int32(1),
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
@@ -184,8 +184,8 @@ var _ = Describe("Private host classes server", func() {
 			// Create a few objects:
 			const count = 10
 			for i := range count {
-				_, err := server.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-					Object: privatev1.HostClass_builder{
+				_, err := server.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+					Object: privatev1.HostType_builder{
 						Title:       fmt.Sprintf("My title %d", i),
 						Description: fmt.Sprintf("My description %d.", i),
 					}.Build(),
@@ -194,7 +194,7 @@ var _ = Describe("Private host classes server", func() {
 			}
 
 			// List the objects:
-			response, err := server.List(ctx, privatev1.HostClassesListRequest_builder{
+			response, err := server.List(ctx, privatev1.HostTypesListRequest_builder{
 				Offset: proto.Int32(1),
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
@@ -204,10 +204,10 @@ var _ = Describe("Private host classes server", func() {
 		It("List objects with filter", func() {
 			// Create a few objects:
 			const count = 10
-			var objects []*privatev1.HostClass
+			var objects []*privatev1.HostType
 			for i := range count {
-				response, err := server.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-					Object: privatev1.HostClass_builder{
+				response, err := server.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+					Object: privatev1.HostType_builder{
 						Title:       fmt.Sprintf("My title %d", i),
 						Description: fmt.Sprintf("My description %d.", i),
 					}.Build(),
@@ -218,7 +218,7 @@ var _ = Describe("Private host classes server", func() {
 
 			// List the objects:
 			for _, object := range objects {
-				response, err := server.List(ctx, privatev1.HostClassesListRequest_builder{
+				response, err := server.List(ctx, privatev1.HostTypesListRequest_builder{
 					Filter: proto.String(fmt.Sprintf("this.id == '%s'", object.GetId())),
 				}.Build())
 				Expect(err).ToNot(HaveOccurred())
@@ -229,8 +229,8 @@ var _ = Describe("Private host classes server", func() {
 
 		It("Get object", func() {
 			// Create the object:
-			createResponse, err := server.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-				Object: privatev1.HostClass_builder{
+			createResponse, err := server.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+				Object: privatev1.HostType_builder{
 					Title:       "My title",
 					Description: "My description.",
 				}.Build(),
@@ -238,7 +238,7 @@ var _ = Describe("Private host classes server", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// Get it:
-			getResponse, err := server.Get(ctx, privatev1.HostClassesGetRequest_builder{
+			getResponse, err := server.Get(ctx, privatev1.HostTypesGetRequest_builder{
 				Id: createResponse.GetObject().GetId(),
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
@@ -247,8 +247,8 @@ var _ = Describe("Private host classes server", func() {
 
 		It("Update object", func() {
 			// Create the object:
-			createResponse, err := server.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-				Object: privatev1.HostClass_builder{
+			createResponse, err := server.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+				Object: privatev1.HostType_builder{
 					Title:       "My title",
 					Description: "My description.",
 				}.Build(),
@@ -257,8 +257,8 @@ var _ = Describe("Private host classes server", func() {
 			object := createResponse.GetObject()
 
 			// Update the object:
-			updateResponse, err := server.Update(ctx, privatev1.HostClassesUpdateRequest_builder{
-				Object: privatev1.HostClass_builder{
+			updateResponse, err := server.Update(ctx, privatev1.HostTypesUpdateRequest_builder{
+				Object: privatev1.HostType_builder{
 					Id:          object.GetId(),
 					Title:       "Your title",
 					Description: "Your description.",
@@ -269,7 +269,7 @@ var _ = Describe("Private host classes server", func() {
 			Expect(updateResponse.GetObject().GetDescription()).To(Equal("Your description."))
 
 			// Get and verify:
-			getResponse, err := server.Get(ctx, privatev1.HostClassesGetRequest_builder{
+			getResponse, err := server.Get(ctx, privatev1.HostTypesGetRequest_builder{
 				Id: object.GetId(),
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
@@ -280,8 +280,8 @@ var _ = Describe("Private host classes server", func() {
 		DescribeTable(
 			"Rejects invalid labels on create and update",
 			func(key string, value string, expected string) {
-				_, err := server.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-					Object: privatev1.HostClass_builder{
+				_, err := server.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+					Object: privatev1.HostType_builder{
 						Metadata: privatev1.Metadata_builder{
 							Labels: map[string]string{
 								key: value,
@@ -297,8 +297,8 @@ var _ = Describe("Private host classes server", func() {
 				Expect(status.Code()).To(Equal(grpccodes.InvalidArgument))
 				Expect(status.Message()).To(Equal(expected))
 
-				createResponse, err := server.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-					Object: privatev1.HostClass_builder{
+				createResponse, err := server.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+					Object: privatev1.HostType_builder{
 						Title:       "My title",
 						Description: "My description.",
 					}.Build(),
@@ -306,8 +306,8 @@ var _ = Describe("Private host classes server", func() {
 				Expect(err).ToNot(HaveOccurred())
 				object := createResponse.GetObject()
 
-				_, err = server.Update(ctx, privatev1.HostClassesUpdateRequest_builder{
-					Object: privatev1.HostClass_builder{
+				_, err = server.Update(ctx, privatev1.HostTypesUpdateRequest_builder{
+					Object: privatev1.HostType_builder{
 						Id: object.GetId(),
 						Metadata: privatev1.Metadata_builder{
 							Labels: map[string]string{
@@ -350,8 +350,8 @@ var _ = Describe("Private host classes server", func() {
 		DescribeTable(
 			"Rejects invalid annotations on create and update",
 			func(key string, value string, expected string) {
-				_, err := server.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-					Object: privatev1.HostClass_builder{
+				_, err := server.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+					Object: privatev1.HostType_builder{
 						Metadata: privatev1.Metadata_builder{
 							Annotations: map[string]string{
 								key: value,
@@ -367,8 +367,8 @@ var _ = Describe("Private host classes server", func() {
 				Expect(status.Code()).To(Equal(grpccodes.InvalidArgument))
 				Expect(status.Message()).To(Equal(expected))
 
-				createResponse, err := server.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-					Object: privatev1.HostClass_builder{
+				createResponse, err := server.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+					Object: privatev1.HostType_builder{
 						Title:       "My title",
 						Description: "My description.",
 					}.Build(),
@@ -377,8 +377,8 @@ var _ = Describe("Private host classes server", func() {
 				object := createResponse.GetObject()
 
 				Expect(err).ToNot(HaveOccurred())
-				_, err = server.Update(ctx, privatev1.HostClassesUpdateRequest_builder{
-					Object: privatev1.HostClass_builder{
+				_, err = server.Update(ctx, privatev1.HostTypesUpdateRequest_builder{
+					Object: privatev1.HostType_builder{
 						Id: object.GetId(),
 						Metadata: privatev1.Metadata_builder{
 							Annotations: map[string]string{
@@ -413,8 +413,8 @@ var _ = Describe("Private host classes server", func() {
 
 		It("Delete object", func() {
 			// Create the object:
-			createResponse, err := server.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-				Object: privatev1.HostClass_builder{
+			createResponse, err := server.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+				Object: privatev1.HostType_builder{
 					Metadata: privatev1.Metadata_builder{
 						Finalizers: []string{"a"},
 					}.Build(),
@@ -426,13 +426,13 @@ var _ = Describe("Private host classes server", func() {
 			object := createResponse.GetObject()
 
 			// Delete the object:
-			_, err = server.Delete(ctx, privatev1.HostClassesDeleteRequest_builder{
+			_, err = server.Delete(ctx, privatev1.HostTypesDeleteRequest_builder{
 				Id: object.GetId(),
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
 
 			// Get and verify:
-			getResponse, err := server.Get(ctx, privatev1.HostClassesGetRequest_builder{
+			getResponse, err := server.Get(ctx, privatev1.HostTypesGetRequest_builder{
 				Id: object.GetId(),
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())

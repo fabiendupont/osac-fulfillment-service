@@ -73,7 +73,7 @@ var _ = Describe("Clusters server", func() {
 		Expect(err).ToNot(HaveOccurred())
 		err = dao.CreateTables[*privatev1.Cluster](ctx)
 		Expect(err).ToNot(HaveOccurred())
-		err = dao.CreateTables[*privatev1.HostClass](ctx)
+		err = dao.CreateTables[*privatev1.HostType](ctx)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -136,8 +136,8 @@ var _ = Describe("Clusters server", func() {
 				Build()
 			Expect(err).ToNot(HaveOccurred())
 
-			// Create the host classes DAO:
-			hostClassesDao, err := dao.NewGenericDAO[*privatev1.HostClass]().
+			// Create the host types DAO:
+			hostTypesDao, err := dao.NewGenericDAO[*privatev1.HostType]().
 				SetLogger(logger).
 				SetTenancyLogic(tenancy).
 				Build()
@@ -150,10 +150,10 @@ var _ = Describe("Clusters server", func() {
 				Build()
 			Expect(err).ToNot(HaveOccurred())
 
-			// Create the the host classes:
-			_, err = hostClassesDao.Create().
+			// Create the the host types:
+			_, err = hostTypesDao.Create().
 				SetObject(
-					privatev1.HostClass_builder{
+					privatev1.HostType_builder{
 						Id:          "acme_1tib",
 						Title:       "ACME 1TiB",
 						Description: "ACME 1TiB.",
@@ -163,9 +163,9 @@ var _ = Describe("Clusters server", func() {
 					}.Build()).
 				Do(ctx)
 			Expect(err).ToNot(HaveOccurred())
-			_, err = hostClassesDao.Create().
+			_, err = hostTypesDao.Create().
 				SetObject(
-					privatev1.HostClass_builder{
+					privatev1.HostType_builder{
 						Id:          "acme_gpu",
 						Title:       "ACME GPU",
 						Description: "ACME GPU.",
@@ -176,9 +176,9 @@ var _ = Describe("Clusters server", func() {
 				).
 				Do(ctx)
 			Expect(err).ToNot(HaveOccurred())
-			_, err = hostClassesDao.Create().
+			_, err = hostTypesDao.Create().
 				SetObject(
-					privatev1.HostClass_builder{
+					privatev1.HostType_builder{
 						Id:          "hal_9000",
 						Title:       "HAL 9000",
 						Description: "Heuristically programmed ALgorithmic computer.",
@@ -202,12 +202,12 @@ var _ = Describe("Clusters server", func() {
 						}.Build(),
 						NodeSets: map[string]*privatev1.ClusterTemplateNodeSet{
 							"compute": privatev1.ClusterTemplateNodeSet_builder{
-								HostClass: "acme_1tib",
-								Size:      3,
+								HostType: "acme_1tib",
+								Size:     3,
 							}.Build(),
 							"gpu": privatev1.ClusterTemplateNodeSet_builder{
-								HostClass: "acme_gpu",
-								Size:      1,
+								HostType: "acme_gpu",
+								Size:     1,
 							}.Build(),
 						},
 					}.Build(),
@@ -310,11 +310,11 @@ var _ = Describe("Clusters server", func() {
 			nodeSets := object.GetSpec().GetNodeSets()
 			Expect(nodeSets).To(HaveKey("compute"))
 			computeNodeSet := nodeSets["compute"]
-			Expect(computeNodeSet.GetHostClass()).To(Equal("acme_1tib"))
+			Expect(computeNodeSet.GetHostType()).To(Equal("acme_1tib"))
 			Expect(computeNodeSet.GetSize()).To(BeNumerically("==", 3))
 			Expect(nodeSets).To(HaveKey("gpu"))
 			gpuNodeSet := nodeSets["gpu"]
-			Expect(gpuNodeSet.GetHostClass()).To(Equal("acme_gpu"))
+			Expect(gpuNodeSet.GetHostType()).To(Equal("acme_gpu"))
 			Expect(gpuNodeSet.GetSize()).To(BeNumerically("==", 1))
 		})
 
@@ -325,8 +325,8 @@ var _ = Describe("Clusters server", func() {
 						Template: "my_template",
 						NodeSets: map[string]*publicv1.ClusterNodeSet{
 							"junk": publicv1.ClusterNodeSet_builder{
-								HostClass: "acme_1tib",
-								Size:      1000,
+								HostType: "acme_1tib",
+								Size:     1000,
 							}.Build(),
 						},
 					}.Build(),
@@ -343,15 +343,15 @@ var _ = Describe("Clusters server", func() {
 			))
 		})
 
-		It("Rejects node set with host class that isn't in the template", func() {
+		It("Rejects node set with host type that isn't in the template", func() {
 			response, err := server.Create(ctx, publicv1.ClustersCreateRequest_builder{
 				Object: publicv1.Cluster_builder{
 					Spec: publicv1.ClusterSpec_builder{
 						Template: "my_template",
 						NodeSets: map[string]*publicv1.ClusterNodeSet{
 							"compute": publicv1.ClusterNodeSet_builder{
-								HostClass: "hal_9000",
-								Size:      1000,
+								HostType: "hal_9000",
+								Size:     1000,
 							}.Build(),
 						},
 					}.Build(),
@@ -363,7 +363,7 @@ var _ = Describe("Clusters server", func() {
 			Expect(ok).To(BeTrue())
 			Expect(status.Code()).To(Equal(grpccodes.InvalidArgument))
 			Expect(status.Message()).To(Equal(
-				"host class for node set 'compute' should be empty or 'acme_1tib', like in " +
+				"host type for node set 'compute' should be empty or 'acme_1tib', like in " +
 					"template 'my_template', but it is 'hal_9000'",
 			))
 		})
@@ -788,8 +788,8 @@ var _ = Describe("Clusters server", func() {
 					Spec: publicv1.ClusterSpec_builder{
 						NodeSets: map[string]*publicv1.ClusterNodeSet{
 							"compute": publicv1.ClusterNodeSet_builder{
-								HostClass: "acme_1tib",
-								Size:      4,
+								HostType: "acme_1tib",
+								Size:     4,
 							}.Build(),
 						},
 					}.Build(),
@@ -798,7 +798,7 @@ var _ = Describe("Clusters server", func() {
 			Expect(err).ToNot(HaveOccurred())
 			object = updateResponse.GetObject()
 			nodeSet := object.GetSpec().GetNodeSets()["compute"]
-			Expect(nodeSet.GetHostClass()).To(Equal("acme_1tib"))
+			Expect(nodeSet.GetHostType()).To(Equal("acme_1tib"))
 			Expect(nodeSet.GetSize()).To(BeNumerically("==", 4))
 
 			// Get and verify:
@@ -808,7 +808,7 @@ var _ = Describe("Clusters server", func() {
 			Expect(err).ToNot(HaveOccurred())
 			object = getResponse.GetObject()
 			nodeSet = object.GetSpec().GetNodeSets()["compute"]
-			Expect(nodeSet.GetHostClass()).To(Equal("acme_1tib"))
+			Expect(nodeSet.GetHostType()).To(Equal("acme_1tib"))
 			Expect(nodeSet.GetSize()).To(BeNumerically("==", 4))
 		})
 
@@ -916,8 +916,8 @@ var _ = Describe("Clusters server", func() {
 							Template: "my_template",
 							NodeSets: map[string]*privatev1.ClusterNodeSet{
 								"compute": privatev1.ClusterNodeSet_builder{
-									HostClass: "my_host_class",
-									Size:      3,
+									HostType: "my_host_type",
+									Size:     3,
 								}.Build(),
 							},
 						}.Build(),
@@ -939,8 +939,8 @@ var _ = Describe("Clusters server", func() {
 						Template: "my_template",
 						NodeSets: map[string]*publicv1.ClusterNodeSet{
 							"compute": publicv1.ClusterNodeSet_builder{
-								HostClass: "my_host_class",
-								Size:      4,
+								HostType: "my_host_type",
+								Size:     4,
 							}.Build(),
 						},
 					}.Build(),
@@ -1104,8 +1104,8 @@ var _ = Describe("Clusters server", func() {
 					Spec: publicv1.ClusterSpec_builder{
 						NodeSets: map[string]*publicv1.ClusterNodeSet{
 							"compute": publicv1.ClusterNodeSet_builder{
-								HostClass: "acme_1tib",
-								Size:      3,
+								HostType: "acme_1tib",
+								Size:     3,
 							}.Build(),
 						},
 					}.Build(),

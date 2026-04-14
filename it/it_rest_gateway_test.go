@@ -29,46 +29,46 @@ import (
 
 var _ = Describe("REST gateway", func() {
 	var (
-		ctx               context.Context
-		templatesClient   privatev1.ClusterTemplatesClient
-		hostClassesClient privatev1.HostClassesClient
+		ctx             context.Context
+		templatesClient privatev1.ClusterTemplatesClient
+		hostTypesClient privatev1.HostTypesClient
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
 		templatesClient = privatev1.NewClusterTemplatesClient(tool.AdminConn())
-		hostClassesClient = privatev1.NewHostClassesClient(tool.AdminConn())
+		hostTypesClient = privatev1.NewHostTypesClient(tool.AdminConn())
 	})
 
 	It("Should use protobuf field names in JSON representation", func() {
-		// Create a couple of host classes for the node sets:
-		computeHostClassID := fmt.Sprintf("compute_%s", uuid.New())
-		gpuHostClassID := fmt.Sprintf("gpus_%s", uuid.New())
-		_, err := hostClassesClient.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-			Object: privatev1.HostClass_builder{
-				Id:          computeHostClassID,
+		// Create a couple of host types for the node sets:
+		computeHostTypeID := fmt.Sprintf("compute_%s", uuid.New())
+		gpuHostTypeID := fmt.Sprintf("gpus_%s", uuid.New())
+		_, err := hostTypesClient.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+			Object: privatev1.HostType_builder{
+				Id:          computeHostTypeID,
 				Title:       "Compute",
 				Description: "Compute.",
 			}.Build(),
 		}.Build())
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() {
-			_, err := hostClassesClient.Delete(ctx, privatev1.HostClassesDeleteRequest_builder{
-				Id: computeHostClassID,
+			_, err := hostTypesClient.Delete(ctx, privatev1.HostTypesDeleteRequest_builder{
+				Id: computeHostTypeID,
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
 		})
-		_, err = hostClassesClient.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-			Object: privatev1.HostClass_builder{
-				Id:          gpuHostClassID,
+		_, err = hostTypesClient.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+			Object: privatev1.HostType_builder{
+				Id:          gpuHostTypeID,
 				Title:       "GPU",
 				Description: "GPU.",
 			}.Build(),
 		}.Build())
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() {
-			_, err := hostClassesClient.Delete(ctx, privatev1.HostClassesDeleteRequest_builder{
-				Id: gpuHostClassID,
+			_, err := hostTypesClient.Delete(ctx, privatev1.HostTypesDeleteRequest_builder{
+				Id: gpuHostTypeID,
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -77,12 +77,12 @@ var _ = Describe("REST gateway", func() {
 		templateID := fmt.Sprintf("my_%s", uuid.New())
 		nodeSets := map[string]*privatev1.ClusterTemplateNodeSet{
 			"compute": privatev1.ClusterTemplateNodeSet_builder{
-				HostClass: computeHostClassID,
-				Size:      3,
+				HostType: computeHostTypeID,
+				Size:     3,
 			}.Build(),
 			"gpu": privatev1.ClusterTemplateNodeSet_builder{
-				HostClass: gpuHostClassID,
-				Size:      2,
+				HostType: gpuHostTypeID,
+				Size:     2,
 			}.Build(),
 		}
 		_, err = templatesClient.Create(ctx, privatev1.ClusterTemplatesCreateRequest_builder{
@@ -120,34 +120,34 @@ var _ = Describe("REST gateway", func() {
 	})
 
 	It("Should be possible to fetch cluster templates via private REST API", func() {
-		// Create a couple of host classes for the node sets:
-		computeHostClassID := fmt.Sprintf("compute_%s", uuid.New())
-		gpuHostClassID := fmt.Sprintf("gpus_%s", uuid.New())
-		_, err := hostClassesClient.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-			Object: privatev1.HostClass_builder{
-				Id:          computeHostClassID,
+		// Create a couple of host types for the node sets:
+		computeHostTypeID := fmt.Sprintf("compute_%s", uuid.New())
+		gpuHostTypeID := fmt.Sprintf("gpus_%s", uuid.New())
+		_, err := hostTypesClient.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+			Object: privatev1.HostType_builder{
+				Id:          computeHostTypeID,
 				Title:       "Compute",
 				Description: "Compute.",
 			}.Build(),
 		}.Build())
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() {
-			_, err := hostClassesClient.Delete(ctx, privatev1.HostClassesDeleteRequest_builder{
-				Id: computeHostClassID,
+			_, err := hostTypesClient.Delete(ctx, privatev1.HostTypesDeleteRequest_builder{
+				Id: computeHostTypeID,
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
 		})
-		_, err = hostClassesClient.Create(ctx, privatev1.HostClassesCreateRequest_builder{
-			Object: privatev1.HostClass_builder{
-				Id:          gpuHostClassID,
+		_, err = hostTypesClient.Create(ctx, privatev1.HostTypesCreateRequest_builder{
+			Object: privatev1.HostType_builder{
+				Id:          gpuHostTypeID,
 				Title:       "GPU",
 				Description: "GPU.",
 			}.Build(),
 		}.Build())
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() {
-			_, err := hostClassesClient.Delete(ctx, privatev1.HostClassesDeleteRequest_builder{
-				Id: gpuHostClassID,
+			_, err := hostTypesClient.Delete(ctx, privatev1.HostTypesDeleteRequest_builder{
+				Id: gpuHostTypeID,
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -156,12 +156,12 @@ var _ = Describe("REST gateway", func() {
 		templateID := fmt.Sprintf("my_%s", uuid.New())
 		nodeSets := map[string]*privatev1.ClusterTemplateNodeSet{
 			"compute": privatev1.ClusterTemplateNodeSet_builder{
-				HostClass: computeHostClassID,
-				Size:      3,
+				HostType: computeHostTypeID,
+				Size:     3,
 			}.Build(),
 			"gpu": privatev1.ClusterTemplateNodeSet_builder{
-				HostClass: gpuHostClassID,
-				Size:      2,
+				HostType: gpuHostTypeID,
+				Size:     2,
 			}.Build(),
 		}
 		_, err = templatesClient.Create(ctx, privatev1.ClusterTemplatesCreateRequest_builder{

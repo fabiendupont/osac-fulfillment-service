@@ -397,8 +397,8 @@ func (s *EventsServer) extractMetadata(ctx context.Context, event *privatev1.Eve
 		return event.GetCluster().GetMetadata()
 	case event.HasClusterTemplate():
 		return event.GetClusterTemplate().GetMetadata()
-	case event.HasHostClass():
-		return event.GetHostClass().GetMetadata()
+	case event.HasHostType():
+		return event.GetHostType().GetMetadata()
 	case event.HasComputeInstanceTemplate():
 		return event.GetComputeInstanceTemplate().GetMetadata()
 	case event.HasComputeInstance():

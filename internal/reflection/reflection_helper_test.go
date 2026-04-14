@@ -137,7 +137,7 @@ var _ = Describe("Reflection helper", func() {
 				"clustertemplate",
 				"computeinstance",
 				"computeinstancetemplate",
-				"hostclass",
+				"hosttype",
 				"networkclass",
 				"organization",
 				"securitygroup",
@@ -152,7 +152,7 @@ var _ = Describe("Reflection helper", func() {
 				"clustertemplates",
 				"computeinstances",
 				"computeinstancetemplates",
-				"hostclasses",
+				"hosttypes",
 				"networkclasses",
 				"organizations",
 				"securitygroups",
@@ -184,9 +184,9 @@ var _ = Describe("Reflection helper", func() {
 				"osac.public.v1.Cluster",
 			),
 			Entry(
-				"Host class in plural",
-				"hostclasses",
-				"osac.public.v1.HostClass",
+				"Host type in plural",
+				"hosttypes",
+				"osac.public.v1.HostType",
 			),
 		)
 
@@ -210,9 +210,9 @@ var _ = Describe("Reflection helper", func() {
 				"osac.public.v1.ClusterTemplate",
 			),
 			Entry(
-				"Host class",
-				"hostclass",
-				"osac.public.v1.HostClass",
+				"Host type",
+				"hosttype",
+				"osac.public.v1.HostType",
 			),
 			Entry(
 				"Compute instance template",
@@ -245,9 +245,9 @@ var _ = Describe("Reflection helper", func() {
 				&publicv1.ClusterTemplate{},
 			),
 			Entry(
-				"Host class",
-				"hostclass",
-				&publicv1.HostClass{},
+				"Host type",
+				"hosttype",
+				&publicv1.HostType{},
 			),
 		)
 
@@ -343,8 +343,8 @@ var _ = Describe("Reflection helper", func() {
 							Spec: publicv1.ClusterSpec_builder{
 								NodeSets: map[string]*publicv1.ClusterNodeSet{
 									"xyz": publicv1.ClusterNodeSet_builder{
-										HostClass: "acme_1tib",
-										Size:      3,
+										HostType: "acme_1tib",
+										Size:     3,
 									}.Build(),
 								},
 							}.Build(),
@@ -356,8 +356,8 @@ var _ = Describe("Reflection helper", func() {
 							Spec: publicv1.ClusterSpec_builder{
 								NodeSets: map[string]*publicv1.ClusterNodeSet{
 									"xyz": publicv1.ClusterNodeSet_builder{
-										HostClass: "acme_1tib",
-										Size:      3,
+										HostType: "acme_1tib",
+										Size:     3,
 									}.Build(),
 								},
 							}.Build(),
@@ -377,8 +377,8 @@ var _ = Describe("Reflection helper", func() {
 				Spec: publicv1.ClusterSpec_builder{
 					NodeSets: map[string]*publicv1.ClusterNodeSet{
 						"xyz": publicv1.ClusterNodeSet_builder{
-							HostClass: "acme_1tib",
-							Size:      3,
+							HostType: "acme_1tib",
+							Size:     3,
 						}.Build(),
 					},
 				}.Build(),
@@ -391,8 +391,8 @@ var _ = Describe("Reflection helper", func() {
 					Spec: publicv1.ClusterSpec_builder{
 						NodeSets: map[string]*publicv1.ClusterNodeSet{
 							"xyz": publicv1.ClusterNodeSet_builder{
-								HostClass: "acme_1tib",
-								Size:      3,
+								HostType: "acme_1tib",
+								Size:     3,
 							}.Build(),
 						},
 					}.Build(),
@@ -425,8 +425,8 @@ var _ = Describe("Reflection helper", func() {
 							Spec: publicv1.ClusterSpec_builder{
 								NodeSets: map[string]*publicv1.ClusterNodeSet{
 									"xyz": publicv1.ClusterNodeSet_builder{
-										HostClass: "acme_1tib",
-										Size:      3,
+										HostType: "acme_1tib",
+										Size:     3,
 									}.Build(),
 								},
 							}.Build(),
@@ -460,8 +460,8 @@ var _ = Describe("Reflection helper", func() {
 					Spec: publicv1.ClusterSpec_builder{
 						NodeSets: map[string]*publicv1.ClusterNodeSet{
 							"xyz": publicv1.ClusterNodeSet_builder{
-								HostClass: "acme_1tib",
-								Size:      3,
+								HostType: "acme_1tib",
+								Size:     3,
 							}.Build(),
 						},
 					}.Build(),

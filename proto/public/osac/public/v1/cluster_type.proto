@@ -96,11 +96,11 @@ message ClusterSpec {
   //   "spec": {
   //     "node_sets": {
   //       "compute": {
-  //         "host_class": "acme_1tb",
+  //         "host_type": "acme_1tb",
   //         "size": 3
   //       },
   //       "gpu": {
-  //         "host_class": "acme_1tb_h100",
+  //         "host_type": "acme_1tb_h100",
   //         "size": 3
   //       }
   //     }
@@ -109,11 +109,11 @@ message ClusterSpec {
   //     "state": "CLUSTER_STATE_READY",
   //     "node_sets": {
   //       "compute": {
-  //         "host_class": "acme_1tb",
+  //         "host_type": "acme_1tb",
   //         "size": 3
   //       },
   //       "gpu": {
-  //         "host_class": "acme_1tb_h100",
+  //         "host_type": "acme_1tb_h100",
   //         "size": 3
   //       }
   //     }
@@ -121,7 +121,7 @@ message ClusterSpec {
   // }
   // ```
   //
-  // The user will not be allowed to change the `host_class` field.
+  // The user will not be allowed to change the `host_type` field.
   //
   // The user will be allowed to add new node sets.
   //
@@ -261,15 +261,15 @@ enum ClusterConditionType {
   CLUSTER_CONDITION_TYPE_DEGRADED = 4;
 }
 
-// Defines a set of nodes that are part of the cluster, all of them of the same class of host.
+// Defines a set of nodes that are part of the cluster, all of them of the same type of host.
 message ClusterNodeSet {
-  // Identifier of the class of hosts that are part of the set.
+  // Identifier of the type of hosts that are part of the set.
   //
-  // The details of the host class can be obtained using the `List` and `Get` method of the `HostClasses` service. For
-  // example, to get the details of the `acme_1tb` host class using the HTTP+JSON version of the API:
+  // The details of the host type can be obtained using the `List` and `Get` method of the `HostTypes` service. For
+  // example, to get the details of the `acme_1tb` host type using the HTTP+JSON version of the API:
   //
   // ```http
-  // GET /api/fulfillment/v1/host_classes/acme_1tb
+  // GET /api/fulfillment/v1/host_types/acme_1tb
   // ```
   //
   // Which will return something like this:
@@ -286,7 +286,7 @@ message ClusterNodeSet {
   // user.
   //
   // The user will not have permission to change this field.
-  string host_class = 1;
+  string host_type = 1;
 
   // Number of nodes of the set.
   int32 size = 2;

@@ -51,10 +51,10 @@ var _ privatev1.ClustersServer = (*PrivateClustersServer)(nil)
 
 type PrivateClustersServer struct {
 	privatev1.UnimplementedClustersServer
-	logger         *slog.Logger
-	templatesDao   *dao.GenericDAO[*privatev1.ClusterTemplate]
-	hostClassesDao *dao.GenericDAO[*privatev1.HostClass]
-	generic        *GenericServer[*privatev1.Cluster]
+	logger       *slog.Logger
+	templatesDao *dao.GenericDAO[*privatev1.ClusterTemplate]
+	hostTypesDao *dao.GenericDAO[*privatev1.HostType]
+	generic      *GenericServer[*privatev1.Cluster]
 }
 
 func NewPrivateClustersServer() *PrivateClustersServerBuilder {
@@ -109,8 +109,8 @@ func (b *PrivateClustersServerBuilder) Build() (result *PrivateClustersServer, e
 		return
 	}
 
-	// Create the host classes DAO:
-	hostClassesDao, err := dao.NewGenericDAO[*privatev1.HostClass]().
+	// Create the host types DAO:
+	hostTypesDao, err := dao.NewGenericDAO[*privatev1.HostType]().
 		SetLogger(b.logger).
 		SetTenancyLogic(b.tenancyLogic).
 		SetMetricsRegisterer(b.metricsRegisterer).
@@ -134,10 +134,10 @@ func (b *PrivateClustersServerBuilder) Build() (result *PrivateClustersServer, e
 
 	// Create and populate the object:
 	result = &PrivateClustersServer{
-		logger:         b.logger,
-		templatesDao:   templatesDao,
-		hostClassesDao: hostClassesDao,
-		generic:        generic,
+		logger:       b.logger,
+		templatesDao: templatesDao,
+		hostTypesDao: hostTypesDao,
+		generic:      generic,
 	}
 	return
 }
@@ -162,15 +162,15 @@ func (s *PrivateClustersServer) Create(ctx context.Context,
 	// Get the spec:
 	spec := request.GetObject().GetSpec()
 
-	// The user may have specified the host classes of the node sets by name, but we want to save the
+	// The user may have specified the host types of the node sets by name, but we want to save the
 	// identifiers, so we need to look them up:
 	for _, nodeSet := range spec.GetNodeSets() {
-		var hostClass *privatev1.HostClass
-		hostClass, err = s.lookupHostClass(ctx, nodeSet.GetHostClass())
+		var hostType *privatev1.HostType
+		hostType, err = s.lookupHostType(ctx, nodeSet.GetHostType())
 		if err != nil {
 			return
 		}
-		nodeSet.SetHostClass(hostClass.GetId())
+		nodeSet.SetHostType(hostType.GetId())
 	}
 
 	// Validate duplicate conditions first:
@@ -263,12 +263,12 @@ func (s *PrivateClustersServer) lookupTemplate(ctx context.Context,
 	return
 }
 
-func (s *PrivateClustersServer) lookupHostClass(ctx context.Context,
-	key string) (result *privatev1.HostClass, err error) {
+func (s *PrivateClustersServer) lookupHostType(ctx context.Context,
+	key string) (result *privatev1.HostType, err error) {
 	if key == "" {
 		return
 	}
-	response, err := s.hostClassesDao.List().
+	response, err := s.hostTypesDao.List().
 		SetFilter(fmt.Sprintf("this.id == %[1]s || this.metadata.name == %[1]s", strconv.Quote(key))).
 		SetLimit(1).
 		Do(ctx)
@@ -283,7 +283,7 @@ func (s *PrivateClustersServer) lookupHostClass(ctx context.Context,
 	case 0:
 		err = grpcstatus.Errorf(
 			grpccodes.NotFound,
-			"there is no host class with identifier or name '%s'",
+			"there is no host type with identifier or name '%s'",
 			key,
 		)
 	case 1:
@@ -291,7 +291,7 @@ func (s *PrivateClustersServer) lookupHostClass(ctx context.Context,
 	default:
 		err = grpcstatus.Errorf(
 			grpccodes.InvalidArgument,
-			"there are multiple host classes with identifier or name '%s'",
+			"there are multiple host types with identifier or name '%s'",
 			key,
 		)
 	}
@@ -350,7 +350,7 @@ func (s *PrivateClustersServer) validateNodeSetsUpdate(ctx context.Context,
 	if err := s.validateAtLeastOneNodeSet(newNodeSets); err != nil {
 		return err
 	}
-	if err := s.validateNodeSetHostClassImmutability(existingNodeSets, newNodeSets); err != nil {
+	if err := s.validateNodeSetHostTypeImmutability(existingNodeSets, newNodeSets); err != nil {
 		return err
 	}
 
@@ -424,9 +424,9 @@ func (s *PrivateClustersServer) validateAtLeastOneNodeSet(nodeSets map[string]*p
 	return nil
 }
 
-// validateNodeSetHostClassImmutability ensures that the host_class field of existing node sets
+// validateNodeSetHostTypeImmutability ensures that the host_type field of existing node sets
 // cannot be changed. This is an existing documented restriction in the API specification.
-func (s *PrivateClustersServer) validateNodeSetHostClassImmutability(
+func (s *PrivateClustersServer) validateNodeSetHostTypeImmutability(
 	existingNodeSets map[string]*privatev1.ClusterNodeSet,
 	newNodeSets map[string]*privatev1.ClusterNodeSet) error {
 	for nodeSetName, existingNodeSet := range existingNodeSets {
@@ -435,15 +435,15 @@ func (s *PrivateClustersServer) validateNodeSetHostClassImmutability(
 			// Node set is being removed, which is allowed (if at least one remains)
 			continue
 		}
-		existingHostClass := existingNodeSet.GetHostClass()
-		newHostClass := newNodeSet.GetHostClass()
-		if existingHostClass != newHostClass {
+		existingHostType := existingNodeSet.GetHostType()
+		newHostType := newNodeSet.GetHostType()
+		if existingHostType != newHostType {
 			return grpcstatus.Errorf(
 				grpccodes.InvalidArgument,
-				"cannot change host_class for node set '%s' from '%s' to '%s': host_class is immutable",
+				"cannot change host_type for node set '%s' from '%s' to '%s': host_type is immutable",
 				nodeSetName,
-				existingHostClass,
-				newHostClass,
+				existingHostType,
+				newHostType,
 			)
 		}
 	}
@@ -521,37 +521,37 @@ func (s *PrivateClustersServer) validateAndTransformCluster(ctx context.Context,
 		return grpcstatus.Errorf(grpccodes.InvalidArgument, "template '%s' has been deleted", templateRef)
 	}
 
-	// Check that the host classes given in the cluster and the template exist, and index them by identifier and
+	// Check that the host types given in the cluster and the template exist, and index them by identifier and
 	// name, so tha it will be easier to look them up later..
-	hostClasses := map[string]*privatev1.HostClass{}
+	hostTypes := map[string]*privatev1.HostType{}
 	for _, nodeSet := range template.GetNodeSets() {
-		hostClassRef := nodeSet.GetHostClass()
-		if hostClassRef == "" {
+		hostTypeRef := nodeSet.GetHostType()
+		if hostTypeRef == "" {
 			continue
 		}
-		hostClass, err := s.lookupHostClass(ctx, hostClassRef)
+		hostType, err := s.lookupHostType(ctx, hostTypeRef)
 		if err != nil {
 			return err
 		}
-		hostClassName := hostClass.GetMetadata().GetName()
-		if hostClassName != "" {
-			hostClasses[hostClassName] = hostClass
+		hostTypeName := hostType.GetMetadata().GetName()
+		if hostTypeName != "" {
+			hostTypes[hostTypeName] = hostType
 		}
-		hostClassId := hostClass.GetId()
-		hostClasses[hostClassId] = hostClass
+		hostTypeId := hostType.GetId()
+		hostTypes[hostTypeId] = hostType
 	}
 	for _, nodeSet := range template.GetNodeSets() {
-		hostClassRef := nodeSet.GetHostClass()
-		hostClass, err := s.lookupHostClass(ctx, hostClassRef)
+		hostTypeRef := nodeSet.GetHostType()
+		hostType, err := s.lookupHostType(ctx, hostTypeRef)
 		if err != nil {
 			return err
 		}
-		hostClassName := hostClass.GetMetadata().GetName()
-		if hostClassName != "" {
-			hostClasses[hostClassName] = hostClass
+		hostTypeName := hostType.GetMetadata().GetName()
+		if hostTypeName != "" {
+			hostTypes[hostTypeName] = hostType
 		}
-		hostClassId := hostClass.GetId()
-		hostClasses[hostClassId] = hostClass
+		hostTypeId := hostType.GetId()
+		hostTypes[hostTypeId] = hostType
 	}
 
 	// Check that all the node sets given in the cluster correspond to node sets that exist in the template:
@@ -573,41 +573,41 @@ func (s *PrivateClustersServer) validateAndTransformCluster(ctx context.Context,
 		}
 	}
 
-	// Check that all the node sets given in the cluster specify the same host class that is specified in the
+	// Check that all the node sets given in the cluster specify the same host type that is specified in the
 	// template:
 	for clusterNodeSetKey, clusterNodeSet := range clusterNodeSets {
-		clusterHostClassRef := clusterNodeSet.GetHostClass()
-		if clusterHostClassRef == "" {
+		clusterHostTypeRef := clusterNodeSet.GetHostType()
+		if clusterHostTypeRef == "" {
 			continue
 		}
 		templateNodeSet := templateNodeSets[clusterNodeSetKey]
-		templateHostClassRef := templateNodeSet.GetHostClass()
-		templateHostClass := hostClasses[templateHostClassRef]
-		templateHostClassId := templateHostClass.GetId()
-		templateHostClassName := templateHostClass.GetMetadata().GetName()
-		if templateHostClassName != "" {
-			if clusterHostClassRef != templateHostClassId && clusterHostClassRef != templateHostClassName {
+		templateHostTypeRef := templateNodeSet.GetHostType()
+		templateHostType := hostTypes[templateHostTypeRef]
+		templateHostTypeId := templateHostType.GetId()
+		templateHostTypeName := templateHostType.GetMetadata().GetName()
+		if templateHostTypeName != "" {
+			if clusterHostTypeRef != templateHostTypeId && clusterHostTypeRef != templateHostTypeName {
 				return grpcstatus.Errorf(
 					grpccodes.InvalidArgument,
-					"host class for node set '%s' should be empty, '%s' or '%s', like in template '%s', "+
+					"host type for node set '%s' should be empty, '%s' or '%s', like in template '%s', "+
 						"but it is '%s'",
 					clusterNodeSetKey,
-					templateHostClassName,
-					templateHostClassId,
+					templateHostTypeName,
+					templateHostTypeId,
 					templateRef,
-					clusterHostClassRef,
+					clusterHostTypeRef,
 				)
 			}
 		} else {
-			if clusterHostClassRef != templateHostClassId {
+			if clusterHostTypeRef != templateHostTypeId {
 				return grpcstatus.Errorf(
 					grpccodes.InvalidArgument,
-					"host class for node set '%s' should be empty or '%s', like in template '%s', "+
+					"host type for node set '%s' should be empty or '%s', like in template '%s', "+
 						"but it is '%s'",
 					clusterNodeSetKey,
-					templateHostClassId,
+					templateHostTypeId,
 					templateRef,
-					clusterHostClassRef,
+					clusterHostTypeRef,
 				)
 			}
 		}
@@ -636,8 +636,8 @@ func (s *PrivateClustersServer) validateAndTransformCluster(ctx context.Context,
 			actualNodeSetSize = templateNodeSet.GetSize()
 		}
 		actualNodeSets[templateNodeSetKey] = privatev1.ClusterNodeSet_builder{
-			HostClass: templateNodeSet.GetHostClass(),
-			Size:      actualNodeSetSize,
+			HostType: templateNodeSet.GetHostType(),
+			Size:     actualNodeSetSize,
 		}.Build()
 	}
 	cluster.GetSpec().SetNodeSets(actualNodeSets)
@@ -656,13 +656,13 @@ func (s *PrivateClustersServer) validateAndTransformCluster(ctx context.Context,
 	)
 	cluster.GetSpec().SetTemplateParameters(actualClusterParameters)
 
-	// Make sure that the templte and the host classes of the node sets are reference by their identifiers, as that
+	// Make sure that the templte and the host types of the node sets are reference by their identifiers, as that
 	// is what we want to save to the database.
 	cluster.GetSpec().SetTemplate(template.GetId())
 	for _, clusterNodeSet := range cluster.GetSpec().GetNodeSets() {
-		hostClassRef := clusterNodeSet.GetHostClass()
-		hostClass := hostClasses[hostClassRef]
-		clusterNodeSet.SetHostClass(hostClass.GetId())
+		hostTypeRef := clusterNodeSet.GetHostType()
+		hostType := hostTypes[hostTypeRef]
+		clusterNodeSet.SetHostType(hostType.GetId())
 	}
 
 	return nil

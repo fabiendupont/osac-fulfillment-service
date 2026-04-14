@@ -72,6 +72,6 @@ enum ClusterConditionType {
 }
 
 message ClusterNodeSet {
-  string host_class = 1;
+  string host_type = 1;
   int32 size = 2;
 }

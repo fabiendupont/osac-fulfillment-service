@@ -226,8 +226,8 @@ var _ = Describe("Calculator", func() {
 				Spec: privatev1.ClusterSpec_builder{
 					NodeSets: map[string]*privatev1.ClusterNodeSet{
 						"workers": privatev1.ClusterNodeSet_builder{
-							HostClass: "worker-class",
-							Size:      3,
+							HostType: "worker-type",
+							Size:     3,
 						}.Build(),
 					},
 				}.Build(),
@@ -237,8 +237,8 @@ var _ = Describe("Calculator", func() {
 				Spec: privatev1.ClusterSpec_builder{
 					NodeSets: map[string]*privatev1.ClusterNodeSet{
 						"workers": privatev1.ClusterNodeSet_builder{
-							HostClass: "worker-class",
-							Size:      5,
+							HostType: "worker-type",
+							Size:     5,
 						}.Build(),
 					},
 				}.Build(),
@@ -253,8 +253,8 @@ var _ = Describe("Calculator", func() {
 				Spec: privatev1.ClusterSpec_builder{
 					NodeSets: map[string]*privatev1.ClusterNodeSet{
 						"workers": privatev1.ClusterNodeSet_builder{
-							HostClass: "worker-class",
-							Size:      3,
+							HostType: "worker-type",
+							Size:     3,
 						}.Build(),
 					},
 				}.Build(),
@@ -264,12 +264,12 @@ var _ = Describe("Calculator", func() {
 				Spec: privatev1.ClusterSpec_builder{
 					NodeSets: map[string]*privatev1.ClusterNodeSet{
 						"workers": privatev1.ClusterNodeSet_builder{
-							HostClass: "worker-class",
-							Size:      3,
+							HostType: "worker-type",
+							Size:     3,
 						}.Build(),
 						"storage": privatev1.ClusterNodeSet_builder{
-							HostClass: "storage-class",
-							Size:      2,
+							HostType: "storage-type",
+							Size:     2,
 						}.Build(),
 					},
 				}.Build(),
@@ -284,12 +284,12 @@ var _ = Describe("Calculator", func() {
 				Spec: privatev1.ClusterSpec_builder{
 					NodeSets: map[string]*privatev1.ClusterNodeSet{
 						"workers": privatev1.ClusterNodeSet_builder{
-							HostClass: "worker-class",
-							Size:      3,
+							HostType: "worker-type",
+							Size:     3,
 						}.Build(),
 						"storage": privatev1.ClusterNodeSet_builder{
-							HostClass: "storage-class",
-							Size:      2,
+							HostType: "storage-type",
+							Size:     2,
 						}.Build(),
 					},
 				}.Build(),
@@ -299,8 +299,8 @@ var _ = Describe("Calculator", func() {
 				Spec: privatev1.ClusterSpec_builder{
 					NodeSets: map[string]*privatev1.ClusterNodeSet{
 						"workers": privatev1.ClusterNodeSet_builder{
-							HostClass: "worker-class",
-							Size:      3,
+							HostType: "worker-type",
+							Size:     3,
 						}.Build(),
 					},
 				}.Build(),
