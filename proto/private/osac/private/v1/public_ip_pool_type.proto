@@ -115,16 +115,17 @@ message PublicIPPoolStatus {
   // Total number of usable IP addresses across all CIDRs in this pool.
   //
   // Calculated from the CIDR ranges (e.g., a /24 IPv4 CIDR yields 254 usable addresses,
-  // excluding network and broadcast addresses).
-  int32 total = 4;
+  // excluding network and broadcast addresses). Uses int64 to accommodate large IPv6 CIDR
+  // ranges whose address counts exceed int32 capacity.
+  int64 total = 4;
 
   // Number of IP addresses currently allocated to PublicIP resources from this pool.
-  int32 allocated = 5;
+  int64 allocated = 5;
 
   // Number of IP addresses available for new allocations from this pool.
   //
   // Equal to total minus allocated.
-  int32 available = 6;
+  int64 available = 6;
 }
 
 // Lifecycle states for PublicIPPool resources.

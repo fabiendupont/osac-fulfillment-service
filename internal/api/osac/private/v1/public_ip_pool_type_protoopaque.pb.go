@@ -403,9 +403,9 @@ type PublicIPPoolStatus struct {
 	xxx_hidden_State       PublicIPPoolState      `protobuf:"varint,1,opt,name=state,proto3,enum=osac.private.v1.PublicIPPoolState"`
 	xxx_hidden_Message     *string                `protobuf:"bytes,2,opt,name=message,proto3,oneof"`
 	xxx_hidden_Hub         string                 `protobuf:"bytes,3,opt,name=hub,proto3"`
-	xxx_hidden_Total       int32                  `protobuf:"varint,4,opt,name=total,proto3"`
-	xxx_hidden_Allocated   int32                  `protobuf:"varint,5,opt,name=allocated,proto3"`
-	xxx_hidden_Available   int32                  `protobuf:"varint,6,opt,name=available,proto3"`
+	xxx_hidden_Total       int64                  `protobuf:"varint,4,opt,name=total,proto3"`
+	xxx_hidden_Allocated   int64                  `protobuf:"varint,5,opt,name=allocated,proto3"`
+	xxx_hidden_Available   int64                  `protobuf:"varint,6,opt,name=available,proto3"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -461,21 +461,21 @@ func (x *PublicIPPoolStatus) GetHub() string {
 	return ""
 }
 
-func (x *PublicIPPoolStatus) GetTotal() int32 {
+func (x *PublicIPPoolStatus) GetTotal() int64 {
 	if x != nil {
 		return x.xxx_hidden_Total
 	}
 	return 0
 }
 
-func (x *PublicIPPoolStatus) GetAllocated() int32 {
+func (x *PublicIPPoolStatus) GetAllocated() int64 {
 	if x != nil {
 		return x.xxx_hidden_Allocated
 	}
 	return 0
 }
 
-func (x *PublicIPPoolStatus) GetAvailable() int32 {
+func (x *PublicIPPoolStatus) GetAvailable() int64 {
 	if x != nil {
 		return x.xxx_hidden_Available
 	}
@@ -495,15 +495,15 @@ func (x *PublicIPPoolStatus) SetHub(v string) {
 	x.xxx_hidden_Hub = v
 }
 
-func (x *PublicIPPoolStatus) SetTotal(v int32) {
+func (x *PublicIPPoolStatus) SetTotal(v int64) {
 	x.xxx_hidden_Total = v
 }
 
-func (x *PublicIPPoolStatus) SetAllocated(v int32) {
+func (x *PublicIPPoolStatus) SetAllocated(v int64) {
 	x.xxx_hidden_Allocated = v
 }
 
-func (x *PublicIPPoolStatus) SetAvailable(v int32) {
+func (x *PublicIPPoolStatus) SetAvailable(v int64) {
 	x.xxx_hidden_Available = v
 }
 
@@ -537,14 +537,15 @@ type PublicIPPoolStatus_builder struct {
 	// Total number of usable IP addresses across all CIDRs in this pool.
 	//
 	// Calculated from the CIDR ranges (e.g., a /24 IPv4 CIDR yields 254 usable addresses,
-	// excluding network and broadcast addresses).
-	Total int32
+	// excluding network and broadcast addresses). Uses int64 to accommodate large IPv6 CIDR
+	// ranges whose address counts exceed int32 capacity.
+	Total int64
 	// Number of IP addresses currently allocated to PublicIP resources from this pool.
-	Allocated int32
+	Allocated int64
 	// Number of IP addresses available for new allocations from this pool.
 	//
 	// Equal to total minus allocated.
-	Available int32
+	Available int64
 }
 
 func (b0 PublicIPPoolStatus_builder) Build() *PublicIPPoolStatus {
@@ -607,10 +608,10 @@ var file_osac_private_v1_public_ip_pool_type_proto_rawDesc = string([]byte{
 	0x61, 0x67, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x48, 0x00, 0x52, 0x07, 0x6d, 0x65, 0x73,
 	0x73, 0x61, 0x67, 0x65, 0x88, 0x01, 0x01, 0x12, 0x10, 0x0a, 0x03, 0x68, 0x75, 0x62, 0x18, 0x03,
 	0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x68, 0x75, 0x62, 0x12, 0x14, 0x0a, 0x05, 0x74, 0x6f, 0x74,
-	0x61, 0x6c, 0x18, 0x04, 0x20, 0x01, 0x28, 0x05, 0x52, 0x05, 0x74, 0x6f, 0x74, 0x61, 0x6c, 0x12,
+	0x61, 0x6c, 0x18, 0x04, 0x20, 0x01, 0x28, 0x03, 0x52, 0x05, 0x74, 0x6f, 0x74, 0x61, 0x6c, 0x12,
 	0x1c, 0x0a, 0x09, 0x61, 0x6c, 0x6c, 0x6f, 0x63, 0x61, 0x74, 0x65, 0x64, 0x18, 0x05, 0x20, 0x01,
-	0x28, 0x05, 0x52, 0x09, 0x61, 0x6c, 0x6c, 0x6f, 0x63, 0x61, 0x74, 0x65, 0x64, 0x12, 0x1c, 0x0a,
-	0x09, 0x61, 0x76, 0x61, 0x69, 0x6c, 0x61, 0x62, 0x6c, 0x65, 0x18, 0x06, 0x20, 0x01, 0x28, 0x05,
+	0x28, 0x03, 0x52, 0x09, 0x61, 0x6c, 0x6c, 0x6f, 0x63, 0x61, 0x74, 0x65, 0x64, 0x12, 0x1c, 0x0a,
+	0x09, 0x61, 0x76, 0x61, 0x69, 0x6c, 0x61, 0x62, 0x6c, 0x65, 0x18, 0x06, 0x20, 0x01, 0x28, 0x03,
 	0x52, 0x09, 0x61, 0x76, 0x61, 0x69, 0x6c, 0x61, 0x62, 0x6c, 0x65, 0x42, 0x0a, 0x0a, 0x08, 0x5f,
 	0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x2a, 0xe7, 0x01, 0x0a, 0x11, 0x50, 0x75, 0x62, 0x6c,
 	0x69, 0x63, 0x49, 0x50, 0x50, 0x6f, 0x6f, 0x6c, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x24, 0x0a,
