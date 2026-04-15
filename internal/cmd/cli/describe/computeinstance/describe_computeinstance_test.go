@@ -15,7 +15,6 @@ package computeinstance
 
 import (
 	"bytes"
-	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2/dsl/core"
@@ -25,14 +24,49 @@ import (
 	publicv1 "github.com/osac-project/fulfillment-service/internal/api/osac/public/v1"
 )
 
-// formatComputeInstance formats a compute instance for display using RenderComputeInstance.
 func formatComputeInstance(ci *publicv1.ComputeInstance) string {
 	var buf bytes.Buffer
-	RenderComputeInstance(&buf, ci)
+	renderComputeInstance(&buf, ci)
 	return buf.String()
 }
 
 var _ = Describe("Describe Compute Instance", func() {
+	It("should display all fields when set", func() {
+		ci := &publicv1.ComputeInstance{
+			Id: "ci-001",
+			Spec: &publicv1.ComputeInstanceSpec{
+				Template: "tpl-small-001",
+			},
+			Status: &publicv1.ComputeInstanceStatus{
+				State: publicv1.ComputeInstanceState_COMPUTE_INSTANCE_STATE_RUNNING,
+			},
+		}
+		output := formatComputeInstance(ci)
+		Expect(output).To(ContainSubstring("ci-001"))
+		Expect(output).To(ContainSubstring("tpl-small-001"))
+		Expect(output).To(ContainSubstring("RUNNING"))
+	})
+
+	It("should strip COMPUTE_INSTANCE_STATE_ prefix from state", func() {
+		ci := &publicv1.ComputeInstance{
+			Id: "ci-002",
+			Status: &publicv1.ComputeInstanceStatus{
+				State: publicv1.ComputeInstanceState_COMPUTE_INSTANCE_STATE_RUNNING,
+			},
+		}
+		output := formatComputeInstance(ci)
+		Expect(output).To(ContainSubstring("RUNNING"))
+		Expect(output).NotTo(ContainSubstring("COMPUTE_INSTANCE_STATE_"))
+	})
+
+	It("should show '-' for template when spec is nil", func() {
+		ci := &publicv1.ComputeInstance{
+			Id: "ci-003",
+		}
+		output := formatComputeInstance(ci)
+		Expect(output).To(MatchRegexp(`Template:\s+-`))
+	})
+
 	It("should display last_restarted_at when set", func() {
 		restartTime := time.Date(2026, 3, 15, 10, 30, 0, 0, time.UTC)
 		ci := &publicv1.ComputeInstance{
@@ -100,12 +134,25 @@ var _ = Describe("CEL filter construction", func() {
 		filter := buildFilter("550e8400-e29b-41d4-a716-446655440000")
 		Expect(filter).To(Equal(`this.id == "550e8400-e29b-41d4-a716-446655440000" || this.metadata.name == "550e8400-e29b-41d4-a716-446655440000"`))
 	})
+	It("should pass through single quotes without escaping", func() {
+		filter := buildFilter("my'instance")
+		Expect(filter).To(Equal(`this.id == "my'instance" || this.metadata.name == "my'instance"`))
+	})
 })
 
 var _ = Describe("Multi-result guard", func() {
-	It("should produce the expected error message", func() {
-		ref := "ambiguous-name"
-		err := fmt.Errorf("multiple compute instances match '%s', use the ID instead", ref)
+	It("should return nil when exactly one item found", func() {
+		Expect(guardResult(1, "any-name")).To(BeNil())
+	})
+	It("should return not-found error when no items found", func() {
+		err := guardResult(0, "missing-instance")
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("compute instance not found"))
+		Expect(err.Error()).To(ContainSubstring("missing-instance"))
+	})
+	It("should return ambiguous error when multiple items found", func() {
+		err := guardResult(2, "ambiguous-name")
+		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("multiple compute instances match"))
 		Expect(err.Error()).To(ContainSubstring("ambiguous-name"))
 		Expect(err.Error()).To(ContainSubstring("use the ID instead"))

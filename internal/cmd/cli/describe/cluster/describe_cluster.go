@@ -16,7 +16,6 @@ package cluster
 import (
 	"fmt"
 	"io"
-	"log/slog"
 	"strings"
 	"text/tabwriter"
 
@@ -25,7 +24,6 @@ import (
 
 	publicv1 "github.com/osac-project/fulfillment-service/internal/api/osac/public/v1"
 	"github.com/osac-project/fulfillment-service/internal/config"
-	"github.com/osac-project/fulfillment-service/internal/logging"
 	"github.com/osac-project/fulfillment-service/internal/terminal"
 )
 
@@ -43,7 +41,6 @@ func Cmd() *cobra.Command {
 }
 
 type runnerContext struct {
-	logger  *slog.Logger
 	console *terminal.Console
 }
 
@@ -52,7 +49,6 @@ func (c *runnerContext) run(cmd *cobra.Command, args []string) error {
 
 	ctx := cmd.Context()
 
-	c.logger = logging.LoggerFromContext(ctx)
 	c.console = terminal.ConsoleFromContext(ctx)
 
 	cfg, err := config.Load(ctx)
@@ -79,22 +75,22 @@ func (c *runnerContext) run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to describe cluster: %w", err)
 	}
-	if len(listResponse.GetItems()) == 0 {
+	if err := guardResult(len(listResponse.GetItems()), ref); err != nil {
+		return err
+	}
+
+	renderCluster(c.console, listResponse.GetItems()[0])
+
+	return nil
+}
+
+func guardResult(items int, ref string) error {
+	if items == 0 {
 		return fmt.Errorf("cluster not found: %s", ref)
 	}
-	if len(listResponse.GetItems()) > 1 {
+	if items > 1 {
 		return fmt.Errorf("multiple clusters match '%s', use the ID instead", ref)
 	}
-
-	response, err := client.Get(ctx, publicv1.ClustersGetRequest_builder{
-		Id: listResponse.GetItems()[0].GetId(),
-	}.Build())
-	if err != nil {
-		return fmt.Errorf("failed to describe cluster: %w", err)
-	}
-
-	RenderCluster(c.console, response.Object)
-
 	return nil
 }
 
@@ -102,8 +98,7 @@ func buildFilter(ref string) string {
 	return fmt.Sprintf(`this.id == %[1]q || this.metadata.name == %[1]q`, ref)
 }
 
-// RenderCluster writes a formatted description of cluster to w.
-func RenderCluster(w io.Writer, cluster *publicv1.Cluster) {
+func renderCluster(w io.Writer, cluster *publicv1.Cluster) {
 	writer := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	template := "-"
 	if cluster.Spec != nil {

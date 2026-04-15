@@ -16,7 +16,6 @@ package computeinstance
 import (
 	"fmt"
 	"io"
-	"log/slog"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -26,7 +25,6 @@ import (
 
 	publicv1 "github.com/osac-project/fulfillment-service/internal/api/osac/public/v1"
 	"github.com/osac-project/fulfillment-service/internal/config"
-	"github.com/osac-project/fulfillment-service/internal/logging"
 	"github.com/osac-project/fulfillment-service/internal/terminal"
 )
 
@@ -34,42 +32,17 @@ import (
 func Cmd() *cobra.Command {
 	runner := &runnerContext{}
 	result := &cobra.Command{
-		Use:   "computeinstance [flags] ID_OR_NAME",
-		Short: "Describe a compute instance",
-		Args:  cobra.ExactArgs(1),
-		RunE:  runner.run,
+		Use:     "computeinstance [flags] ID_OR_NAME",
+		Aliases: []string{"computeinstances"},
+		Short:   "Describe a compute instance",
+		Args:    cobra.ExactArgs(1),
+		RunE:    runner.run,
 	}
 	return result
 }
 
 type runnerContext struct {
-	logger  *slog.Logger
 	console *terminal.Console
-}
-
-func buildFilter(ref string) string {
-	return fmt.Sprintf(`this.id == %[1]q || this.metadata.name == %[1]q`, ref)
-}
-
-// RenderComputeInstance writes a formatted description of ci to w.
-func RenderComputeInstance(w io.Writer, ci *publicv1.ComputeInstance) {
-	writer := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	template := "-"
-	if ci.Spec != nil {
-		template = ci.Spec.Template
-	}
-	state := "-"
-	if ci.Status != nil {
-		state = ci.Status.State.String()
-		state = strings.TrimPrefix(state, "COMPUTE_INSTANCE_STATE_")
-	}
-	fmt.Fprintf(writer, "ID:\t%s\n", ci.Id)
-	fmt.Fprintf(writer, "Template:\t%s\n", template)
-	fmt.Fprintf(writer, "State:\t%s\n", state)
-	if ci.Status != nil && ci.Status.GetLastRestartedAt() != nil {
-		fmt.Fprintf(writer, "Last Restarted At:\t%s\n", ci.Status.GetLastRestartedAt().AsTime().Format(time.RFC3339))
-	}
-	writer.Flush()
 }
 
 func (c *runnerContext) run(cmd *cobra.Command, args []string) error {
@@ -77,7 +50,6 @@ func (c *runnerContext) run(cmd *cobra.Command, args []string) error {
 
 	ctx := cmd.Context()
 
-	c.logger = logging.LoggerFromContext(ctx)
 	c.console = terminal.ConsoleFromContext(ctx)
 
 	cfg, err := config.Load(ctx)
@@ -104,21 +76,45 @@ func (c *runnerContext) run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to describe compute instance: %w", err)
 	}
-	if len(listResponse.GetItems()) == 0 {
-		return fmt.Errorf("compute instance not found: %s", ref)
-	}
-	if len(listResponse.GetItems()) > 1 {
-		return fmt.Errorf("multiple compute instances match '%s', use the ID instead", ref)
+	if err := guardResult(len(listResponse.GetItems()), ref); err != nil {
+		return err
 	}
 
-	response, err := client.Get(ctx, publicv1.ComputeInstancesGetRequest_builder{
-		Id: listResponse.GetItems()[0].GetId(),
-	}.Build())
-	if err != nil {
-		return fmt.Errorf("failed to describe compute instance: %w", err)
-	}
-
-	RenderComputeInstance(c.console, response.Object)
+	renderComputeInstance(c.console, listResponse.GetItems()[0])
 
 	return nil
+}
+
+func guardResult(items int, ref string) error {
+	if items == 0 {
+		return fmt.Errorf("compute instance not found: %s", ref)
+	}
+	if items > 1 {
+		return fmt.Errorf("multiple compute instances match '%s', use the ID instead", ref)
+	}
+	return nil
+}
+
+func buildFilter(ref string) string {
+	return fmt.Sprintf(`this.id == %[1]q || this.metadata.name == %[1]q`, ref)
+}
+
+func renderComputeInstance(w io.Writer, ci *publicv1.ComputeInstance) {
+	writer := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	template := "-"
+	if ci.Spec != nil {
+		template = ci.Spec.Template
+	}
+	state := "-"
+	if ci.Status != nil {
+		state = ci.Status.State.String()
+		state = strings.TrimPrefix(state, "COMPUTE_INSTANCE_STATE_")
+	}
+	fmt.Fprintf(writer, "ID:\t%s\n", ci.Id)
+	fmt.Fprintf(writer, "Template:\t%s\n", template)
+	fmt.Fprintf(writer, "State:\t%s\n", state)
+	if ci.Status != nil && ci.Status.GetLastRestartedAt() != nil {
+		fmt.Fprintf(writer, "Last Restarted At:\t%s\n", ci.Status.GetLastRestartedAt().AsTime().Format(time.RFC3339))
+	}
+	writer.Flush()
 }
