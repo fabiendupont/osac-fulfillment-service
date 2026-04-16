@@ -170,4 +170,303 @@ var _ = Describe("update tenant annotation", func() {
 		Expect(createdCR.GetAnnotations()).To(HaveKeyWithValue(annotations.Tenant, tenantName))
 		Expect(createdCR.GetLabels()).To(HaveKeyWithValue(labels.ClusterOrderUuid, clusterID))
 	})
+
+	It("should update ClusterOrder when node set size changes on a ready cluster", func() {
+		// Create an existing ClusterOrder with size 3:
+		existingOrder := &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": gvks.ClusterOrder.Group + "/" + gvks.ClusterOrder.Version,
+				"kind":       gvks.ClusterOrder.Kind,
+				"metadata": map[string]any{
+					"name":      "order-abc",
+					"namespace": hubNamespace,
+					"labels": map[string]any{
+						labels.ClusterOrderUuid: clusterID,
+					},
+					"annotations": map[string]any{
+						annotations.Tenant: tenantName,
+					},
+				},
+				"spec": map[string]any{
+					"templateID": "test-template",
+					"nodeRequests": []any{
+						map[string]any{
+							"resourceClass": "gpu.gb200",
+							"numberOfNodes": int64(3),
+						},
+					},
+				},
+			},
+		}
+
+		scheme := runtime.NewScheme()
+		scheme.AddKnownTypeWithName(
+			schema.GroupVersionKind{
+				Group:   gvks.ClusterOrder.Group,
+				Version: gvks.ClusterOrder.Version,
+				Kind:    gvks.ClusterOrder.Kind + "List",
+			},
+			&unstructured.UnstructuredList{},
+		)
+
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(existingOrder).
+			Build()
+
+		hubCache := controllers.NewMockHubCache(ctrl)
+		hubCache.EXPECT().
+			Get(gomock.Any(), hubID).
+			Return(&controllers.HubEntry{
+				Namespace: hubNamespace,
+				Client:    fakeClient,
+			}, nil)
+
+		// Create a cluster in READY state with updated node set size (5):
+		cluster := privatev1.Cluster_builder{
+			Id: clusterID,
+			Metadata: privatev1.Metadata_builder{
+				Finalizers: []string{finalizers.Controller},
+				Tenants:    []string{tenantName},
+			}.Build(),
+			Spec: privatev1.ClusterSpec_builder{
+				Template: "test-template",
+				NodeSets: map[string]*privatev1.ClusterNodeSet{
+					"gpu.gb200": privatev1.ClusterNodeSet_builder{
+						HostType: "gpu.gb200",
+						Size:     5,
+					}.Build(),
+				},
+			}.Build(),
+			Status: privatev1.ClusterStatus_builder{
+				State: privatev1.ClusterState_CLUSTER_STATE_READY,
+				Hub:   hubID,
+			}.Build(),
+		}.Build()
+
+		t := &task{
+			r: &function{
+				logger:         logger,
+				hubCache:       hubCache,
+				maskCalculator: nil,
+			},
+			cluster: cluster,
+		}
+
+		err := t.update(ctx)
+		Expect(err).ToNot(HaveOccurred())
+
+		// Verify the ClusterOrder was patched with the new size:
+		list := &unstructured.UnstructuredList{}
+		list.SetGroupVersionKind(gvks.ClusterOrderList)
+		err = fakeClient.List(ctx, list)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(list.Items).To(HaveLen(1))
+
+		updatedCR := list.Items[0]
+		nodeRequests, found, err := unstructured.NestedSlice(updatedCR.Object, "spec", "nodeRequests")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(found).To(BeTrue())
+		Expect(nodeRequests).To(HaveLen(1))
+		nodeRequest := nodeRequests[0].(map[string]any)
+		Expect(nodeRequest["resourceClass"]).To(Equal("gpu.gb200"))
+		Expect(nodeRequest["numberOfNodes"]).To(BeNumerically("==", 5))
+	})
+
+	It("should update ClusterOrder when node set size changes on a progressing cluster", func() {
+		// Create an existing ClusterOrder with size 3:
+		existingOrder := &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": gvks.ClusterOrder.Group + "/" + gvks.ClusterOrder.Version,
+				"kind":       gvks.ClusterOrder.Kind,
+				"metadata": map[string]any{
+					"name":      "order-abc",
+					"namespace": hubNamespace,
+					"labels": map[string]any{
+						labels.ClusterOrderUuid: clusterID,
+					},
+					"annotations": map[string]any{
+						annotations.Tenant: tenantName,
+					},
+				},
+				"spec": map[string]any{
+					"templateID": "test-template",
+					"nodeRequests": []any{
+						map[string]any{
+							"resourceClass": "gpu.gb200",
+							"numberOfNodes": int64(3),
+						},
+					},
+				},
+			},
+		}
+
+		scheme := runtime.NewScheme()
+		scheme.AddKnownTypeWithName(
+			schema.GroupVersionKind{
+				Group:   gvks.ClusterOrder.Group,
+				Version: gvks.ClusterOrder.Version,
+				Kind:    gvks.ClusterOrder.Kind + "List",
+			},
+			&unstructured.UnstructuredList{},
+		)
+
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(existingOrder).
+			Build()
+
+		hubCache := controllers.NewMockHubCache(ctrl)
+		hubCache.EXPECT().
+			Get(gomock.Any(), hubID).
+			Return(&controllers.HubEntry{
+				Namespace: hubNamespace,
+				Client:    fakeClient,
+			}, nil)
+
+		// Create a cluster in PROGRESSING state with updated node set size (5):
+		cluster := privatev1.Cluster_builder{
+			Id: clusterID,
+			Metadata: privatev1.Metadata_builder{
+				Finalizers: []string{finalizers.Controller},
+				Tenants:    []string{tenantName},
+			}.Build(),
+			Spec: privatev1.ClusterSpec_builder{
+				Template: "test-template",
+				NodeSets: map[string]*privatev1.ClusterNodeSet{
+					"gpu.gb200": privatev1.ClusterNodeSet_builder{
+						HostType: "gpu.gb200",
+						Size:     5,
+					}.Build(),
+				},
+			}.Build(),
+			Status: privatev1.ClusterStatus_builder{
+				State: privatev1.ClusterState_CLUSTER_STATE_PROGRESSING,
+				Hub:   hubID,
+			}.Build(),
+		}.Build()
+
+		t := &task{
+			r: &function{
+				logger:         logger,
+				hubCache:       hubCache,
+				maskCalculator: nil,
+			},
+			cluster: cluster,
+		}
+
+		err := t.update(ctx)
+		Expect(err).ToNot(HaveOccurred())
+
+		// Verify the ClusterOrder was patched with the new size:
+		list := &unstructured.UnstructuredList{}
+		list.SetGroupVersionKind(gvks.ClusterOrderList)
+		err = fakeClient.List(ctx, list)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(list.Items).To(HaveLen(1))
+
+		updatedCR := list.Items[0]
+		nodeRequests, found, err := unstructured.NestedSlice(updatedCR.Object, "spec", "nodeRequests")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(found).To(BeTrue())
+		Expect(nodeRequests).To(HaveLen(1))
+		nodeRequest := nodeRequests[0].(map[string]any)
+		Expect(nodeRequest["resourceClass"]).To(Equal("gpu.gb200"))
+		Expect(nodeRequest["numberOfNodes"]).To(BeNumerically("==", 5))
+	})
+
+	It("should not update ClusterOrder when cluster is in failed state", func() {
+		// Create an existing ClusterOrder with size 3:
+		existingOrder := &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": gvks.ClusterOrder.Group + "/" + gvks.ClusterOrder.Version,
+				"kind":       gvks.ClusterOrder.Kind,
+				"metadata": map[string]any{
+					"name":      "order-abc",
+					"namespace": hubNamespace,
+					"labels": map[string]any{
+						labels.ClusterOrderUuid: clusterID,
+					},
+					"annotations": map[string]any{
+						annotations.Tenant: tenantName,
+					},
+				},
+				"spec": map[string]any{
+					"templateID": "test-template",
+					"nodeRequests": []any{
+						map[string]any{
+							"resourceClass": "gpu.gb200",
+							"numberOfNodes": int64(3),
+						},
+					},
+				},
+			},
+		}
+
+		scheme := runtime.NewScheme()
+		scheme.AddKnownTypeWithName(
+			schema.GroupVersionKind{
+				Group:   gvks.ClusterOrder.Group,
+				Version: gvks.ClusterOrder.Version,
+				Kind:    gvks.ClusterOrder.Kind + "List",
+			},
+			&unstructured.UnstructuredList{},
+		)
+
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(existingOrder).
+			Build()
+
+		// No hubCache expectation — the reconciler should return before touching the hub.
+
+		// Create a cluster in FAILED state with updated node set size (5):
+		cluster := privatev1.Cluster_builder{
+			Id: clusterID,
+			Metadata: privatev1.Metadata_builder{
+				Finalizers: []string{finalizers.Controller},
+				Tenants:    []string{tenantName},
+			}.Build(),
+			Spec: privatev1.ClusterSpec_builder{
+				Template: "test-template",
+				NodeSets: map[string]*privatev1.ClusterNodeSet{
+					"gpu.gb200": privatev1.ClusterNodeSet_builder{
+						HostType: "gpu.gb200",
+						Size:     5,
+					}.Build(),
+				},
+			}.Build(),
+			Status: privatev1.ClusterStatus_builder{
+				State: privatev1.ClusterState_CLUSTER_STATE_FAILED,
+				Hub:   hubID,
+			}.Build(),
+		}.Build()
+
+		t := &task{
+			r: &function{
+				logger:         logger,
+				hubCache:       nil,
+				maskCalculator: nil,
+			},
+			cluster: cluster,
+		}
+
+		err := t.update(ctx)
+		Expect(err).ToNot(HaveOccurred())
+
+		// Verify the ClusterOrder was NOT patched — size should still be 3:
+		list := &unstructured.UnstructuredList{}
+		list.SetGroupVersionKind(gvks.ClusterOrderList)
+		err = fakeClient.List(ctx, list)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(list.Items).To(HaveLen(1))
+
+		unchangedCR := list.Items[0]
+		nodeRequests, found, err := unstructured.NestedSlice(unchangedCR.Object, "spec", "nodeRequests")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(found).To(BeTrue())
+		Expect(nodeRequests).To(HaveLen(1))
+		nodeRequest := nodeRequests[0].(map[string]any)
+		Expect(nodeRequest["numberOfNodes"]).To(BeNumerically("==", 3))
+	})
 })

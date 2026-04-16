@@ -159,8 +159,12 @@ func (t *task) update(ctx context.Context) error {
 		return err
 	}
 
-	// Do nothing if the order isn't progressing:
-	if t.cluster.GetStatus().GetState() != privatev1.ClusterState_CLUSTER_STATE_PROGRESSING {
+	// Do nothing if the cluster is in a terminal failure state. For both progressing and ready
+	// clusters we need to sync the spec to the ClusterOrder, as the user may update node set
+	// sizes on a ready cluster.
+	state := t.cluster.GetStatus().GetState()
+	if state != privatev1.ClusterState_CLUSTER_STATE_PROGRESSING &&
+		state != privatev1.ClusterState_CLUSTER_STATE_READY {
 		return nil
 	}
 
