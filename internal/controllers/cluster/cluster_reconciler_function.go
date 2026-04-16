@@ -209,6 +209,9 @@ func (t *task) update(ctx context.Context) error {
 		"nodeRequests":       nodeRequests,
 	}
 
+	// Add explicit spec fields if present:
+	t.addExplicitFields(spec)
+
 	// Create or update the Kubernetes object:
 	if object == nil {
 		object := &unstructured.Unstructured{}
@@ -293,6 +296,31 @@ func (t *task) validateTenant() error {
 		return errors.New("Cluster must have exactly one tenant assigned")
 	}
 	return nil
+}
+
+func (t *task) addExplicitFields(spec map[string]any) {
+	clusterSpec := t.cluster.GetSpec()
+	if clusterSpec.HasPullSecret() {
+		spec["pullSecret"] = clusterSpec.GetPullSecret()
+	}
+	if clusterSpec.HasSshPublicKey() {
+		spec["sshPublicKey"] = clusterSpec.GetSshPublicKey()
+	}
+	if clusterSpec.HasReleaseImage() {
+		spec["releaseImage"] = clusterSpec.GetReleaseImage()
+	}
+	if clusterSpec.HasNetwork() {
+		network := map[string]any{}
+		if clusterSpec.GetNetwork().HasPodCidr() {
+			network["podCIDR"] = clusterSpec.GetNetwork().GetPodCidr()
+		}
+		if clusterSpec.GetNetwork().HasServiceCidr() {
+			network["serviceCIDR"] = clusterSpec.GetNetwork().GetServiceCidr()
+		}
+		if len(network) > 0 {
+			spec["network"] = network
+		}
+	}
 }
 
 func (t *task) prepareNodeRequests() any {
