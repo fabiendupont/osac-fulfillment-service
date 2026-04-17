@@ -18,6 +18,7 @@ import (
 	"context"
 
 	. "github.com/onsi/ginkgo/v2/dsl/core"
+	. "github.com/onsi/ginkgo/v2/dsl/table"
 	. "github.com/onsi/gomega"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -58,102 +59,69 @@ var _ = Describe("Table renderer", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
+	// registerTemplateAndRender registers a ComputeInstanceTemplates server that returns a single
+	// template with the given name (empty string means no name set), starts the server, renders one
+	// ComputeInstance via the table renderer, and returns the output.
+	registerTemplateAndRender := func(templateName string) string {
+		tmplBuilder := publicv1.ComputeInstanceTemplate_builder{
+			Id: "osac.templates.ocp_virt_vm",
+		}
+		if templateName != "" {
+			tmplBuilder.Metadata = publicv1.Metadata_builder{Name: templateName}.Build()
+		}
+		publicv1.RegisterComputeInstanceTemplatesServer(
+			server.Registrar(),
+			&internaltesting.ComputeInstanceTemplatesServerFuncs{
+				ListFunc: func(
+					_ context.Context,
+					_ *publicv1.ComputeInstanceTemplatesListRequest,
+				) (*publicv1.ComputeInstanceTemplatesListResponse, error) {
+					return publicv1.ComputeInstanceTemplatesListResponse_builder{
+						Size:  1,
+						Total: 1,
+						Items: []*publicv1.ComputeInstanceTemplate{tmplBuilder.Build()},
+					}.Build(), nil
+				},
+			},
+		)
+		server.Start()
+
+		var buf bytes.Buffer
+		renderer, err := NewTableRenderer().
+			SetLogger(logger).
+			SetHelper(helper).
+			SetWriter(&buf).
+			Build()
+		Expect(err).ToNot(HaveOccurred())
+
+		instance := publicv1.ComputeInstance_builder{
+			Id:       "019d53bd-42b4-7e23-b98e-6368490d3d83",
+			Metadata: publicv1.Metadata_builder{Name: "test"}.Build(),
+			Spec:     publicv1.ComputeInstanceSpec_builder{Template: "osac.templates.ocp_virt_vm"}.Build(),
+		}.Build()
+
+		err = renderer.Render(ctx, []*publicv1.ComputeInstance{instance})
+		Expect(err).ToNot(HaveOccurred())
+		return buf.String()
+	}
+
 	Describe("Lookup columns", func() {
-		It("Falls back to the key when the looked-up object has no name", func() {
-			// Register a ComputeInstanceTemplates server that returns a template with no name set.
-			// This is the regression case for MGMT-23970: the TEMPLATE column was blank when
-			// metadata.name was empty.
-			publicv1.RegisterComputeInstanceTemplatesServer(
-				server.Registrar(),
-				&internaltesting.ComputeInstanceTemplatesServerFuncs{
-					ListFunc: func(
-						ctx context.Context,
-						req *publicv1.ComputeInstanceTemplatesListRequest,
-					) (*publicv1.ComputeInstanceTemplatesListResponse, error) {
-						return publicv1.ComputeInstanceTemplatesListResponse_builder{
-							Size:  1,
-							Total: 1,
-							Items: []*publicv1.ComputeInstanceTemplate{
-								publicv1.ComputeInstanceTemplate_builder{
-									Id: "osac.templates.ocp_virt_vm",
-									// Metadata.Name deliberately left empty.
-								}.Build(),
-							},
-						}.Build(), nil
-					},
-				},
-			)
-			server.Start()
-
-			var buf bytes.Buffer
-			renderer, err := NewTableRenderer().
-				SetLogger(logger).
-				SetHelper(helper).
-				SetWriter(&buf).
-				Build()
-			Expect(err).ToNot(HaveOccurred())
-
-			instance := publicv1.ComputeInstance_builder{
-				Id: "019d53bd-42b4-7e23-b98e-6368490d3d83",
-				Metadata: publicv1.Metadata_builder{
-					Name: "test",
-				}.Build(),
-				Spec: publicv1.ComputeInstanceSpec_builder{
-					Template: "osac.templates.ocp_virt_vm",
-				}.Build(),
-			}.Build()
-
-			err = renderer.Render(ctx, []*publicv1.ComputeInstance{instance})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(buf.String()).To(ContainSubstring("osac.templates.ocp_virt_vm"))
-		})
-
-		It("Shows the name when the looked-up object has a name", func() {
-			publicv1.RegisterComputeInstanceTemplatesServer(
-				server.Registrar(),
-				&internaltesting.ComputeInstanceTemplatesServerFuncs{
-					ListFunc: func(
-						ctx context.Context,
-						req *publicv1.ComputeInstanceTemplatesListRequest,
-					) (*publicv1.ComputeInstanceTemplatesListResponse, error) {
-						return publicv1.ComputeInstanceTemplatesListResponse_builder{
-							Size:  1,
-							Total: 1,
-							Items: []*publicv1.ComputeInstanceTemplate{
-								publicv1.ComputeInstanceTemplate_builder{
-									Id: "osac.templates.ocp_virt_vm",
-									Metadata: publicv1.Metadata_builder{
-										Name: "OpenShift Virt VM",
-									}.Build(),
-								}.Build(),
-							},
-						}.Build(), nil
-					},
-				},
-			)
-			server.Start()
-
-			var buf bytes.Buffer
-			renderer, err := NewTableRenderer().
-				SetLogger(logger).
-				SetHelper(helper).
-				SetWriter(&buf).
-				Build()
-			Expect(err).ToNot(HaveOccurred())
-
-			instance := publicv1.ComputeInstance_builder{
-				Id: "019d53bd-42b4-7e23-b98e-6368490d3d83",
-				Metadata: publicv1.Metadata_builder{
-					Name: "test",
-				}.Build(),
-				Spec: publicv1.ComputeInstanceSpec_builder{
-					Template: "osac.templates.ocp_virt_vm",
-				}.Build(),
-			}.Build()
-
-			err = renderer.Render(ctx, []*publicv1.ComputeInstance{instance})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(buf.String()).To(ContainSubstring("OpenShift Virt VM"))
-		})
+		DescribeTable(
+			"Resolves the TEMPLATE column",
+			func(templateName, expectedSubstring string) {
+				Expect(registerTemplateAndRender(templateName)).To(ContainSubstring(expectedSubstring))
+			},
+			Entry(
+				// Regression for MGMT-23970: TEMPLATE column was blank when metadata.name was empty.
+				"Falls back to the key when the looked-up object has no name",
+				"",
+				"osac.templates.ocp_virt_vm",
+			),
+			Entry(
+				"Shows the template name when the looked-up object has a name",
+				"OpenShift Virt VM",
+				"OpenShift Virt VM",
+			),
+		)
 	})
 })
