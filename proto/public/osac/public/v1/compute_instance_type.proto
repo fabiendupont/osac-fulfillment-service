@@ -193,7 +193,7 @@ message ComputeInstanceStatus {
   //    }
   //
   // In this example the `PROVISIONED` condition is true (infrastructure is allocated), `CONFIGURATION_APPLIED` is true
-  // (the desired configuration has been applied by the provisioning provider), and `AVAILABLE` is true (the compute
+  // (the desired configuration has been applied by the provisioning provider), and `READY` is true (the compute
   // instance is reachable via the IP address in `status.ip_address`).
   //
   // The `state` field reflects the VM power state as reported by the hypervisor. Possible states include
@@ -329,11 +329,13 @@ enum ComputeInstanceConditionType {
   //
   // When `status` is `FALSE`, infrastructure provisioning is in progress.
   //
-  // Possible `reason` values:
+  // Possible `reason` values when `status` is `TRUE`:
+  // - `InfrastructureReady`: All infrastructure resources provisioned successfully.
+  //
+  // Possible `reason` values when `status` is `FALSE`:
   // - `TenantNotReady`: The parent tenant is not yet in a ready state.
   // - `WaitingForVM`: VirtualMachine has not been created yet.
   // - `ProvisioningStorage`: DataVolumes are being created for boot and additional disks.
-  // - `InfrastructureReady`: All infrastructure resources provisioned successfully.
   COMPUTE_INSTANCE_CONDITION_TYPE_PROVISIONED = 5;
 
   // Indicates that the compute instance requires a restart for configuration changes
