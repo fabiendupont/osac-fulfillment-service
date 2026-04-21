@@ -239,12 +239,6 @@ var _ = Describe("Private compute instances server", func() {
 				Build()
 			Expect(err).ToNot(HaveOccurred())
 
-			// Create default values for parameters
-			cpuDefault, err := anypb.New(wrapperspb.Int32(1))
-			Expect(err).ToNot(HaveOccurred())
-			memoryDefault, err := anypb.New(wrapperspb.Int32(2))
-			Expect(err).ToNot(HaveOccurred())
-
 			template := privatev1.ComputeInstanceTemplate_builder{
 				Id:          templateID,
 				Title:       "Test Template",
@@ -446,8 +440,9 @@ var _ = Describe("Private compute instances server", func() {
 		})
 
 		It("Updates object", func() {
-			// Create a template first
+			// Create templates first
 			createTemplate("general.small")
+			createTemplate("general.large")
 
 			// Create an object:
 			createResponse, err := server.Create(ctx, privatev1.ComputeInstancesCreateRequest_builder{
@@ -467,16 +462,19 @@ var _ = Describe("Private compute instances server", func() {
 			id := createdObject.GetId()
 			Expect(id).ToNot(BeEmpty())
 
-			// Update the object (only status, template is immutable):
+			// Update the object:
 			updateResponse, err := server.Update(ctx, privatev1.ComputeInstancesUpdateRequest_builder{
 				Object: privatev1.ComputeInstance_builder{
 					Id: id,
+					Spec: privatev1.ComputeInstanceSpec_builder{
+						Template: "general.large",
+					}.Build(),
 					Status: privatev1.ComputeInstanceStatus_builder{
 						State: privatev1.ComputeInstanceState_COMPUTE_INSTANCE_STATE_RUNNING,
 					}.Build(),
 				}.Build(),
 				UpdateMask: &fieldmaskpb.FieldMask{
-					Paths: []string{"status.state"},
+					Paths: []string{"spec.template", "status.state"},
 				},
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
@@ -484,7 +482,7 @@ var _ = Describe("Private compute instances server", func() {
 			object := updateResponse.GetObject()
 			Expect(object).ToNot(BeNil())
 			Expect(object.GetId()).To(Equal(id))
-			Expect(object.GetSpec().GetTemplate()).To(Equal("general.small"))
+			Expect(object.GetSpec().GetTemplate()).To(Equal("general.large"))
 			Expect(object.GetStatus().GetState()).To(Equal(privatev1.ComputeInstanceState_COMPUTE_INSTANCE_STATE_RUNNING))
 		})
 
@@ -578,7 +576,8 @@ var _ = Describe("Private compute instances server", func() {
 			Expect(response).To(BeNil())
 		})
 
-		It("Rejects changing template on update", func() {
+		It("Validates template exists on update", func() {
+			// Create a template and compute instance first:
 			createTemplate("existing-template")
 
 			createResponse, err := server.Create(ctx, privatev1.ComputeInstancesCreateRequest_builder{
@@ -596,12 +595,15 @@ var _ = Describe("Private compute instances server", func() {
 
 			id := createResponse.GetObject().GetId()
 
-			// Try to change the template:
+			// Try to update with non-existent template:
 			updateResponse, err := server.Update(ctx, privatev1.ComputeInstancesUpdateRequest_builder{
 				Object: privatev1.ComputeInstance_builder{
 					Id: id,
 					Spec: privatev1.ComputeInstanceSpec_builder{
-						Template: "different-template",
+						Template: "non-existent-template",
+					}.Build(),
+					Status: privatev1.ComputeInstanceStatus_builder{
+						State: privatev1.ComputeInstanceState_COMPUTE_INSTANCE_STATE_STARTING,
 					}.Build(),
 				}.Build(),
 				UpdateMask: &fieldmaskpb.FieldMask{
@@ -610,93 +612,6 @@ var _ = Describe("Private compute instances server", func() {
 			}.Build())
 			Expect(err).To(HaveOccurred())
 			Expect(updateResponse).To(BeNil())
-			status, ok := grpcstatus.FromError(err)
-			Expect(ok).To(BeTrue())
-			Expect(status.Code()).To(Equal(grpccodes.InvalidArgument))
-			Expect(status.Message()).To(ContainSubstring("template is immutable"))
-		})
-
-		It("Rejects changing template_parameters on update", func() {
-			createTemplate("params-template")
-
-			// Create with initial parameters:
-			cpuParam, err := anypb.New(wrapperspb.Int32(2))
-			Expect(err).ToNot(HaveOccurred())
-
-			createResponse, err := server.Create(ctx, privatev1.ComputeInstancesCreateRequest_builder{
-				Object: privatev1.ComputeInstance_builder{
-					Spec: privatev1.ComputeInstanceSpec_builder{
-						Template:           "params-template",
-						TemplateParameters: map[string]*anypb.Any{"cpu_count": cpuParam},
-					}.Build(),
-				}.Build(),
-			}.Build())
-			Expect(err).ToNot(HaveOccurred())
-			Expect(createResponse).ToNot(BeNil())
-
-			id := createResponse.GetObject().GetId()
-
-			// Try to change template_parameters:
-			newCpuParam, err := anypb.New(wrapperspb.Int32(8))
-			Expect(err).ToNot(HaveOccurred())
-
-			updateResponse, err := server.Update(ctx, privatev1.ComputeInstancesUpdateRequest_builder{
-				Object: privatev1.ComputeInstance_builder{
-					Id: id,
-					Spec: privatev1.ComputeInstanceSpec_builder{
-						Template:           "params-template",
-						TemplateParameters: map[string]*anypb.Any{"cpu_count": newCpuParam},
-					}.Build(),
-				}.Build(),
-				UpdateMask: &fieldmaskpb.FieldMask{
-					Paths: []string{"spec.template_parameters"},
-				},
-			}.Build())
-			Expect(err).To(HaveOccurred())
-			Expect(updateResponse).To(BeNil())
-			status, ok := grpcstatus.FromError(err)
-			Expect(ok).To(BeTrue())
-			Expect(status.Code()).To(Equal(grpccodes.InvalidArgument))
-			Expect(status.Message()).To(ContainSubstring("template parameters are immutable"))
-		})
-
-		It("Allows update when template in mask but unchanged", func() {
-			createTemplate("same-template")
-
-			createResponse, err := server.Create(ctx, privatev1.ComputeInstancesCreateRequest_builder{
-				Object: privatev1.ComputeInstance_builder{
-					Spec: privatev1.ComputeInstanceSpec_builder{
-						Template: "same-template",
-					}.Build(),
-					Status: privatev1.ComputeInstanceStatus_builder{
-						State: privatev1.ComputeInstanceState_COMPUTE_INSTANCE_STATE_STARTING,
-					}.Build(),
-				}.Build(),
-			}.Build())
-			Expect(err).ToNot(HaveOccurred())
-			Expect(createResponse).ToNot(BeNil())
-
-			id := createResponse.GetObject().GetId()
-
-			// Update with template in mask but same value:
-			updateResponse, err := server.Update(ctx, privatev1.ComputeInstancesUpdateRequest_builder{
-				Object: privatev1.ComputeInstance_builder{
-					Id: id,
-					Spec: privatev1.ComputeInstanceSpec_builder{
-						Template: "same-template",
-					}.Build(),
-					Status: privatev1.ComputeInstanceStatus_builder{
-						State: privatev1.ComputeInstanceState_COMPUTE_INSTANCE_STATE_RUNNING,
-					}.Build(),
-				}.Build(),
-				UpdateMask: &fieldmaskpb.FieldMask{
-					Paths: []string{"spec.template", "status.state"},
-				},
-			}.Build())
-			Expect(err).ToNot(HaveOccurred())
-			Expect(updateResponse).ToNot(BeNil())
-			Expect(updateResponse.GetObject().GetSpec().GetTemplate()).To(Equal("same-template"))
-			Expect(updateResponse.GetObject().GetStatus().GetState()).To(Equal(privatev1.ComputeInstanceState_COMPUTE_INSTANCE_STATE_RUNNING))
 		})
 
 		It("Validates template ID is not empty", func() {
@@ -1152,11 +1067,6 @@ var _ = Describe("Private compute instances server", func() {
 				SetLogger(logger).
 				SetTenancyLogic(tenancy).
 				Build()
-			Expect(err).ToNot(HaveOccurred())
-
-			cpuDefault, err := anypb.New(wrapperspb.Int32(1))
-			Expect(err).ToNot(HaveOccurred())
-			memoryDefault, err := anypb.New(wrapperspb.Int32(2))
 			Expect(err).ToNot(HaveOccurred())
 
 			template = privatev1.ComputeInstanceTemplate_builder{
