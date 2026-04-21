@@ -694,6 +694,34 @@ func (c *runnerContext) run(cmd *cobra.Command, argv []string) error {
 	}
 	privatev1.RegisterComputeInstanceClassesServer(grpcServer, privateComputeInstanceClassesServer)
 
+	// Create the compute instance groups server:
+	c.logger.InfoContext(ctx, "Creating compute instance groups server")
+	computeInstanceGroupsServer, err := servers.NewComputeInstanceGroupsServer().
+		SetLogger(c.logger).
+		SetNotifier(notifier).
+		SetAttributionLogic(publicAttributionLogic).
+		SetTenancyLogic(publicTenancyLogic).
+		SetMetricsRegisterer(metricsRegisterer).
+		Build()
+	if err != nil {
+		return fmt.Errorf("failed to create compute instance groups server: %w", err)
+	}
+	publicv1.RegisterComputeInstanceGroupsServer(grpcServer, computeInstanceGroupsServer)
+
+	// Create the private compute instance groups server:
+	c.logger.InfoContext(ctx, "Creating private compute instance groups server")
+	privateComputeInstanceGroupsServer, err := servers.NewPrivateComputeInstanceGroupsServer().
+		SetLogger(c.logger).
+		SetNotifier(notifier).
+		SetAttributionLogic(privateAttributionLogic).
+		SetTenancyLogic(privateTenancyLogic).
+		SetMetricsRegisterer(metricsRegisterer).
+		Build()
+	if err != nil {
+		return fmt.Errorf("failed to create private compute instance groups server: %w", err)
+	}
+	privatev1.RegisterComputeInstanceGroupsServer(grpcServer, privateComputeInstanceGroupsServer)
+
 	// Create the images server:
 	c.logger.InfoContext(ctx, "Creating images server")
 	imagesServer, err := servers.NewImagesServer().
