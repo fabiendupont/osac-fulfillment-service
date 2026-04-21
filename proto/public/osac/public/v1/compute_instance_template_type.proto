@@ -19,8 +19,8 @@ import "google/protobuf/any.proto";
 import "osac/public/v1/compute_instance_type.proto";
 import "osac/public/v1/metadata_type.proto";
 
-// A compute instance template defines a type of compute instance that can be created by the user. Note that the user doesn't create these
-// templates: the system provides a collection of them, and the user chooses one.
+// A compute instance template defines a provisioning recipe for a compute instance class. It references an Ansible
+// role that implements the provisioning logic for a specific backend and site.
 message ComputeInstanceTemplate {
   // Unique identifier of the template.
   string id = 1;
@@ -45,6 +45,18 @@ message ComputeInstanceTemplate {
   //
   // User-provided spec field values always override these defaults.
   ComputeInstanceTemplateSpecDefaults spec_defaults = 6;
+
+  // Backend provisioning type. For example: "metal3", "kubevirt", "nico", "esi".
+  string backend = 7;
+
+  // Site where this template is available.
+  string site = 8;
+
+  // Ansible role name for provisioning.
+  string role = 9;
+
+  // Ansible role collection containing the role.
+  string role_collection = 10;
 }
 
 // Contains type and documentation of a template parameter.

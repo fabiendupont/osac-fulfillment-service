@@ -1,0 +1,147 @@
+//
+// Copyright (c) 2025 Red Hat, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+
+syntax = "proto3";
+
+package osac.private.v1;
+
+import "osac/private/v1/metadata_type.proto";
+
+// Describes a provider-defined SKU or catalog entry for compute offerings.
+//
+// ComputeInstanceClass represents a specific compute offering that tenants can order. For example,
+// there could be a compute instance class `bm-large` describing a bare metal server with 64 cores
+// and 256 GiB of memory, or `vm-small` describing a virtual machine with 2 cores and 4 GiB of memory.
+//
+// This is similar to the _instance type_ concept used by cloud providers (e.g., AWS m5.xlarge),
+// or the _storage class_ concept used by Kubernetes for persistent volumes.
+//
+// Users query available ComputeInstanceClasses to discover which compute offerings they can choose
+// when creating ComputeInstances.
+message ComputeInstanceClass {
+  // Unique identifier of the compute instance class.
+  string id = 1;
+
+  // Metadata of the compute instance class.
+  Metadata metadata = 2;
+
+  // Human friendly short description of the compute instance class, only a few words, suitable for displaying in one
+  // single line on a UI or CLI. For example: "Large Bare Metal" or "Small Virtual Machine".
+  string title = 3;
+
+  // Human friendly long description of the compute instance class, using Markdown format. This should explain the
+  // characteristics of compute instances created using this class, including performance characteristics,
+  // hardware specifications, and any limitations or requirements.
+  string description = 4;
+
+  // Backend provisioning type for this class. For example: "baremetal" or "virtual".
+  //
+  // This value is system-defined and immutable once the ComputeInstanceClass is created.
+  string backend = 5;
+
+  // Capabilities that this compute instance class provides. These describe what compute resources are available
+  // when using this class.
+  ComputeInstanceClassCapabilities capabilities = 6;
+
+  // References to the templates that can fulfill this class. Each template reference identifies a specific
+  // Ansible role at a specific site that can provision compute instances of this class.
+  repeated ComputeInstanceClassTemplateRef templates = 7;
+
+  // Current operational status of the compute instance class.
+  ComputeInstanceClassStatus status = 8;
+}
+
+// Describes the compute capabilities provided by a ComputeInstanceClass.
+//
+// Fields use a fixed/min/max pattern: if a value is fixed, the tenant gets exactly that amount;
+// if min/max are set, the tenant can choose within that range.
+message ComputeInstanceClassCapabilities {
+  // Fixed number of CPU cores. If set, the tenant gets exactly this many cores.
+  optional int32 cores_fixed = 1;
+
+  // Minimum number of CPU cores the tenant can request.
+  optional int32 cores_min = 2;
+
+  // Maximum number of CPU cores the tenant can request.
+  optional int32 cores_max = 3;
+
+  // Fixed amount of memory in GiB. If set, the tenant gets exactly this much memory.
+  optional int32 memory_gib_fixed = 4;
+
+  // Minimum amount of memory in GiB the tenant can request.
+  optional int32 memory_gib_min = 5;
+
+  // Maximum amount of memory in GiB the tenant can request.
+  optional int32 memory_gib_max = 6;
+
+  // GPU capabilities, if any.
+  optional ComputeInstanceClassGPU gpus = 7;
+
+  // Storage capabilities.
+  optional ComputeInstanceClassStorage storage = 8;
+}
+
+// Describes GPU capabilities of a ComputeInstanceClass.
+message ComputeInstanceClassGPU {
+  // Number of GPUs available.
+  int32 count = 1;
+
+  // GPU model identifier. For example: "nvidia-a100", "nvidia-h100".
+  string model = 2;
+}
+
+// Describes storage capabilities of a ComputeInstanceClass.
+message ComputeInstanceClassStorage {
+  // Fixed boot disk size in GiB.
+  optional int32 boot_disk_gib_fixed = 1;
+
+  // Minimum boot disk size in GiB the tenant can request.
+  optional int32 boot_disk_gib_min = 2;
+
+  // Maximum boot disk size in GiB the tenant can request.
+  optional int32 boot_disk_gib_max = 3;
+}
+
+// Reference to a ComputeInstanceTemplate that can fulfill this class.
+message ComputeInstanceClassTemplateRef {
+  // Name of the template.
+  string name = 1;
+
+  // Site where this template is available.
+  string site = 2;
+}
+
+// Represents the current operational state of a ComputeInstanceClass.
+message ComputeInstanceClassStatus {
+  // Current lifecycle state of the compute instance class.
+  ComputeInstanceClassState state = 1;
+
+  // Human-readable message providing additional details about the current state. For example, if the state is
+  // FAILED, this message might explain what went wrong.
+  optional string message = 2;
+}
+
+// Lifecycle states for ComputeInstanceClass resources.
+enum ComputeInstanceClassState {
+  // State is unknown or has not been determined yet.
+  COMPUTE_INSTANCE_CLASS_STATE_UNSPECIFIED = 0;
+
+  // The compute instance class is being initialized and is not yet ready for use.
+  COMPUTE_INSTANCE_CLASS_STATE_PENDING = 1;
+
+  // The compute instance class is fully operational and available for creating ComputeInstances.
+  COMPUTE_INSTANCE_CLASS_STATE_READY = 2;
+
+  // The compute instance class has encountered an error and cannot be used for creating ComputeInstances.
+  COMPUTE_INSTANCE_CLASS_STATE_FAILED = 3;
+}

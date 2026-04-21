@@ -1,0 +1,93 @@
+//
+// Copyright (c) 2025 Red Hat, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+
+syntax = "proto3";
+
+package osac.private.v1;
+
+import "osac/private/v1/metadata_type.proto";
+
+// Represents a bootable OS image in the provider's catalog.
+//
+// Image describes a bootable operating system image that can be used to provision ComputeInstances. Each image
+// includes metadata about the operating system, architecture, and boot method, as well as a reference to the
+// image source (e.g., an OCI registry URL).
+//
+// Images are provider-defined catalog resources. Users query available Images to discover which operating
+// system options they can choose when creating ComputeInstances.
+message Image {
+  // Unique identifier of the image.
+  string id = 1;
+
+  // Metadata of the image.
+  Metadata metadata = 2;
+
+  // Human friendly short description of the image, only a few words, suitable for displaying in one single
+  // line on a UI or CLI. For example: "RHEL 9.4" or "Fedora CoreOS 40".
+  string title = 3;
+
+  // Human friendly long description of the image, using Markdown format. This should explain the
+  // characteristics of the image, including the operating system, version, and any special features
+  // or requirements.
+  string description = 4;
+
+  // Type of image source. For example: "registry" for OCI container images.
+  string source_type = 5;
+
+  // Reference to the image source. For example, an OCI image URL like
+  // "quay.io/openshift-release-dev/ocp-release:4.14.0-x86_64".
+  string source_ref = 6;
+
+  // Operating system name. For example: "rhel", "fedora", "centos".
+  optional string os = 7;
+
+  // Operating system version. For example: "9.4", "40".
+  optional string version = 8;
+
+  // CPU architecture. For example: "aarch64", "x86_64".
+  optional string architecture = 9;
+
+  // Boot method used by the image. Valid values are "ignition", "cloud-init", "kickstart".
+  string boot_method = 10;
+
+  // List of ComputeInstanceClass IDs that this image is compatible with.
+  repeated string compatibility = 11;
+
+  // Current operational status of the image.
+  ImageStatus status = 12;
+}
+
+// Represents the current operational state of an Image.
+message ImageStatus {
+  // Current lifecycle state of the image.
+  ImageState state = 1;
+
+  // Human-readable message providing additional details about the current state. For example, if the state is
+  // FAILED, this message might explain what went wrong.
+  optional string message = 2;
+}
+
+// Lifecycle states for Image resources.
+enum ImageState {
+  // State is unknown or has not been determined yet.
+  IMAGE_STATE_UNSPECIFIED = 0;
+
+  // The image is being initialized and is not yet ready for use.
+  IMAGE_STATE_PENDING = 1;
+
+  // The image is fully operational and available for creating ComputeInstances.
+  IMAGE_STATE_READY = 2;
+
+  // The image has encountered an error and cannot be used for creating ComputeInstances.
+  IMAGE_STATE_FAILED = 3;
+}

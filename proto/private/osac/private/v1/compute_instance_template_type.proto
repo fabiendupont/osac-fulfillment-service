@@ -32,6 +32,18 @@ message ComputeInstanceTemplate {
   //
   // User-provided spec field values always override these defaults.
   ComputeInstanceTemplateSpecDefaults spec_defaults = 6;
+
+  // Backend provisioning type. For example: "metal3", "kubevirt", "nico", "esi".
+  string backend = 7;
+
+  // Site where this template is available.
+  string site = 8;
+
+  // Ansible role name for provisioning.
+  string role = 9;
+
+  // Ansible role collection containing the role.
+  string role_collection = 10;
 }
 
 message ComputeInstanceTemplateParameterDefinition {
