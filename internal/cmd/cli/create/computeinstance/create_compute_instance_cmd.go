@@ -153,6 +153,31 @@ func Cmd() *cobra.Command {
 		nil,
 		networkAttachmentFlagHelp,
 	)
+	flags.StringVarP(
+		&runner.args.class,
+		"class",
+		"c",
+		"",
+		"ComputeInstanceClass name (alternative to --template).",
+	)
+	flags.StringVar(
+		&runner.args.region,
+		"region",
+		"",
+		"Region for template selection within the class.",
+	)
+	flags.StringVar(
+		&runner.args.imageRef,
+		"image-ref",
+		"",
+		"Image resource name (alternative to --image).",
+	)
+	flags.StringSliceVar(
+		&runner.args.sshKeyRefs,
+		"ssh-key-ref",
+		[]string{},
+		"SSHKey resource name. Repeatable.",
+	)
 
 	// Mark deprecated flags
 	flags.MarkDeprecated("subnet", "use --network-attachment instead")
@@ -182,6 +207,10 @@ type runnerContext struct {
 		subnet                  string
 		securityGroups          []string
 		networkAttachments      []string
+		class                   string
+		region                  string
+		imageRef                string
+		sshKeyRefs              []string
 	}
 	logger                 *slog.Logger
 	console                *terminal.Console
@@ -273,31 +302,31 @@ func (c *runnerContext) run(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Legacy template path (existing code continues below):
+	var spec *publicv1.ComputeInstanceSpec
 
-	// Fetch the compute instance template:
-	template, err := c.findTemplate(ctx)
-	if err != nil {
-		return err
+	if c.args.class != "" {
+		spec, err = c.buildClassBasedSpec()
+	} else {
+		// Legacy template-based flow
+		template, findErr := c.findTemplate(ctx)
+		if findErr != nil {
+			return findErr
+		}
+		if template == nil {
+			return exit.Error(1)
+		}
+		templateParameterValues, templateParameterIssues := c.parseTemplateParameters(ctx, template)
+		if len(templateParameterIssues) > 0 {
+			validTemplateParameters := c.validTemplateParameters(template)
+			c.console.Render(ctx, "template_parameter_issues.txt", map[string]any{
+				"Template":   c.args.template,
+				"Parameters": validTemplateParameters,
+				"Issues":     templateParameterIssues,
+			})
+			return exit.Error(1)
+		}
+		spec, err = c.buildSpec(template.GetId(), templateParameterValues)
 	}
-	if template == nil {
-		return exit.Error(1)
-	}
-
-	// Parse the template parameters:
-	templateParameterValues, templateParameterIssues := c.parseTemplateParameters(ctx, template)
-	if len(templateParameterIssues) > 0 {
-		validTemplateParameters := c.validTemplateParameters(template)
-		c.console.Render(ctx, "template_parameter_issues.txt", map[string]any{
-			"Template":   c.args.template,
-			"Parameters": validTemplateParameters,
-			"Issues":     templateParameterIssues,
-		})
-		return exit.Error(1)
-	}
-
-	// Build the spec:
-	spec, err := c.buildSpec(template.GetId(), templateParameterValues)
 	if err != nil {
 		return err
 	}
@@ -578,6 +607,53 @@ func (c *runnerContext) buildSpecFromCatalogItem(catalogItemID string) (*publicv
 	}
 	if c.args.userData != "" {
 		spec.UserData = new(c.args.userData)
+	}
+	return spec.Build(), nil
+}
+
+func (c *runnerContext) buildClassBasedSpec() (*publicv1.ComputeInstanceSpec, error) {
+	spec := publicv1.ComputeInstanceSpec_builder{
+		ComputeInstanceClass: proto.String(c.args.class),
+	}
+	if c.args.region != "" {
+		spec.Region = proto.String(c.args.region)
+	}
+	if c.args.imageRef != "" {
+		spec.ImageRef = proto.String(c.args.imageRef)
+	} else if c.args.imageSourceRef != "" {
+		spec.Image = publicv1.ComputeInstanceImage_builder{
+			SourceType: c.args.imageSourceType,
+			SourceRef:  c.args.imageSourceRef,
+		}.Build()
+	}
+	if len(c.args.sshKeyRefs) > 0 {
+		spec.SshKeyRefs = c.args.sshKeyRefs
+	} else if c.args.sshKey != "" {
+		spec.SshKey = proto.String(c.args.sshKey)
+	}
+	if c.args.cores > 0 {
+		spec.Cores = proto.Int32(c.args.cores)
+	}
+	if c.args.memoryGiB > 0 {
+		spec.MemoryGib = proto.Int32(c.args.memoryGiB)
+	}
+	if c.args.bootDiskSizeGiB > 0 {
+		spec.BootDisk = publicv1.ComputeInstanceDisk_builder{
+			SizeGib: c.args.bootDiskSizeGiB,
+		}.Build()
+	}
+	if len(c.args.additionalDisks) > 0 {
+		disks, err := parseAdditionalDisks(c.args.additionalDisks)
+		if err != nil {
+			return nil, err
+		}
+		spec.AdditionalDisks = disks
+	}
+	if c.args.runStrategy != "" {
+		spec.RunStrategy = proto.String(c.args.runStrategy)
+	}
+	if c.args.userData != "" {
+		spec.UserData = proto.String(c.args.userData)
 	}
 	return spec.Build(), nil
 }
