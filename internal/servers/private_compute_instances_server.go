@@ -47,6 +47,7 @@ type PrivateComputeInstancesServer struct {
 	generic           *GenericServer[*privatev1.ComputeInstance]
 	templatesDao      *dao.GenericDAO[*privatev1.ComputeInstanceTemplate]
 	classesDao        *dao.GenericDAO[*privatev1.ComputeInstanceClass]
+	imagesDao         *dao.GenericDAO[*privatev1.Image]
 	subnetsDao        *dao.GenericDAO[*privatev1.Subnet]
 	securityGroupsDao *dao.GenericDAO[*privatev1.SecurityGroup]
 }
@@ -113,6 +114,16 @@ func (b *PrivateComputeInstancesServerBuilder) Build() (result *PrivateComputeIn
 		return
 	}
 
+	// Create the Images DAO:
+	imagesDao, err := dao.NewGenericDAO[*privatev1.Image]().
+		SetLogger(b.logger).
+		SetTenancyLogic(b.tenancyLogic).
+		SetMetricsRegisterer(b.metricsRegisterer).
+		Build()
+	if err != nil {
+		return
+	}
+
 	// Create the Subnets DAO for network validation:
 	subnetsDao, err := dao.NewGenericDAO[*privatev1.Subnet]().
 		SetLogger(b.logger).
@@ -152,6 +163,7 @@ func (b *PrivateComputeInstancesServerBuilder) Build() (result *PrivateComputeIn
 		generic:           generic,
 		templatesDao:      templatesDao,
 		classesDao:        classesDao,
+		imagesDao:         imagesDao,
 		subnetsDao:        subnetsDao,
 		securityGroupsDao: securityGroupsDao,
 	}
@@ -263,6 +275,14 @@ func (s *PrivateComputeInstancesServer) validateTemplate(ctx context.Context, vm
 			return grpcstatus.Errorf(grpccodes.FailedPrecondition,
 				"compute instance class '%s' is not in READY state", classID)
 		}
+		if err := s.validateCapabilityRanges(spec, class.GetCapabilities()); err != nil {
+			return err
+		}
+		if imageRef := spec.GetImageRef(); imageRef != "" {
+			if err := s.validateImageClassCompatibility(ctx, imageRef, classID); err != nil {
+				return err
+			}
+		}
 		return nil
 	}
 
@@ -279,6 +299,96 @@ func (s *PrivateComputeInstancesServer) validateTemplate(ctx context.Context, vm
 	if template == nil {
 		return grpcstatus.Errorf(grpccodes.InvalidArgument,
 			"template '%s' does not exist", templateID)
+	}
+
+	return nil
+}
+
+func (s *PrivateComputeInstancesServer) validateImageClassCompatibility(
+	ctx context.Context, imageRef string, classID string,
+) error {
+	getImageResponse, err := s.imagesDao.Get().
+		SetId(imageRef).
+		Do(ctx)
+	if err != nil {
+		s.logger.ErrorContext(ctx, "Image retrieval failed",
+			slog.String("image_ref", imageRef), slog.Any("error", err))
+		return grpcstatus.Errorf(grpccodes.Internal,
+			"failed to retrieve image '%s'", imageRef)
+	}
+	image := getImageResponse.GetObject()
+	if image == nil {
+		return grpcstatus.Errorf(grpccodes.InvalidArgument,
+			"image '%s' does not exist", imageRef)
+	}
+	compatibility := image.GetCompatibility()
+	if len(compatibility) > 0 {
+		for _, compatibleClass := range compatibility {
+			if compatibleClass == classID {
+				return nil
+			}
+		}
+		return grpcstatus.Errorf(grpccodes.InvalidArgument,
+			"image '%s' is not compatible with compute instance class '%s'",
+			imageRef, classID)
+	}
+	return nil
+}
+
+func (s *PrivateComputeInstancesServer) validateCapabilityRanges(
+	spec *privatev1.ComputeInstanceSpec,
+	caps *privatev1.ComputeInstanceClassCapabilities,
+) error {
+	if caps == nil {
+		return nil
+	}
+
+	if cores := spec.GetCores(); cores != 0 {
+		if fixed := caps.GetCoresFixed(); fixed != 0 && cores != fixed {
+			return grpcstatus.Errorf(grpccodes.InvalidArgument,
+				"cores must be %d for this class (got %d)", fixed, cores)
+		}
+		if min := caps.GetCoresMin(); min != 0 && cores < min {
+			return grpcstatus.Errorf(grpccodes.InvalidArgument,
+				"cores must be at least %d for this class (got %d)", min, cores)
+		}
+		if max := caps.GetCoresMax(); max != 0 && cores > max {
+			return grpcstatus.Errorf(grpccodes.InvalidArgument,
+				"cores must be at most %d for this class (got %d)", max, cores)
+		}
+	}
+
+	if mem := spec.GetMemoryGib(); mem != 0 {
+		if fixed := caps.GetMemoryGibFixed(); fixed != 0 && mem != fixed {
+			return grpcstatus.Errorf(grpccodes.InvalidArgument,
+				"memory_gib must be %d for this class (got %d)", fixed, mem)
+		}
+		if min := caps.GetMemoryGibMin(); min != 0 && mem < min {
+			return grpcstatus.Errorf(grpccodes.InvalidArgument,
+				"memory_gib must be at least %d for this class (got %d)", min, mem)
+		}
+		if max := caps.GetMemoryGibMax(); max != 0 && mem > max {
+			return grpcstatus.Errorf(grpccodes.InvalidArgument,
+				"memory_gib must be at most %d for this class (got %d)", max, mem)
+		}
+	}
+
+	if disk := spec.GetBootDisk(); disk != nil {
+		storage := caps.GetStorage()
+		if storage != nil && disk.GetSizeGib() != 0 {
+			if fixed := storage.GetBootDiskGibFixed(); fixed != 0 && disk.GetSizeGib() != fixed {
+				return grpcstatus.Errorf(grpccodes.InvalidArgument,
+					"boot_disk.size_gib must be %d for this class (got %d)", fixed, disk.GetSizeGib())
+			}
+			if min := storage.GetBootDiskGibMin(); min != 0 && disk.GetSizeGib() < min {
+				return grpcstatus.Errorf(grpccodes.InvalidArgument,
+					"boot_disk.size_gib must be at least %d for this class (got %d)", min, disk.GetSizeGib())
+			}
+			if max := storage.GetBootDiskGibMax(); max != 0 && disk.GetSizeGib() > max {
+				return grpcstatus.Errorf(grpccodes.InvalidArgument,
+					"boot_disk.size_gib must be at most %d for this class (got %d)", max, disk.GetSizeGib())
+			}
+		}
 	}
 
 	return nil
