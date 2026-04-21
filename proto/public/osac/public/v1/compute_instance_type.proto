@@ -165,6 +165,21 @@ message ComputeInstanceSpec {
   // Reference to a compute instance catalog item. Mutually exclusive with template during the migration period.
   // When set, the server fetches the catalog item and applies its field definitions.
   string catalog_item = 15;
+
+  // Reference to a ComputeInstanceClass. Replaces direct template selection.
+  // When set, the system selects a template from the class based on region and availability.
+  optional string compute_instance_class = 16;
+
+  // Region narrows template selection within the class to a specific region.
+  optional string region = 17;
+
+  // Reference to an Image resource by name. Replaces inline image configuration.
+  // When set, the system resolves the image source and boot method from the Image resource.
+  optional string image_ref = 18;
+
+  // References to SSHKey resources by name. Replaces inline ssh_key.
+  // Multiple keys can be specified for injection at provisioning time.
+  repeated string ssh_key_refs = 19;
 }
 
 // The status contains the details of the compute instance provided by the system.
