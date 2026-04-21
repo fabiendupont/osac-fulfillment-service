@@ -1,0 +1,103 @@
+//
+// Copyright (c) 2025 Red Hat, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+
+syntax = "proto3";
+
+package osac.public.v1;
+
+import "osac/public/v1/metadata_type.proto";
+
+// A ComputeInstanceGroup manages a scaled set of identical ComputeInstances with placement semantics.
+//
+// ComputeInstanceGroup replaces the removed HostPool concept. It provides the same scaling semantics
+// but works with both virtual and bare-metal compute through the unified ComputeInstanceClass model.
+//
+// Users create a group by specifying a ComputeInstanceClass and desired replica count. The system
+// creates and manages individual ComputeInstance resources. Scaling up increases replicas, scaling
+// down removes instances (last created first).
+message ComputeInstanceGroup {
+  // Unique identifier of the compute instance group.
+  string id = 1;
+
+  // Metadata of the compute instance group.
+  Metadata metadata = 2;
+
+  // Desired state of the compute instance group.
+  ComputeInstanceGroupSpec spec = 3;
+
+  // Current state of the compute instance group.
+  ComputeInstanceGroupStatus status = 4;
+}
+
+// The spec contains the desired state of a compute instance group.
+message ComputeInstanceGroupSpec {
+  // Reference to the ComputeInstanceClass for all instances in this group.
+  string compute_instance_class = 1;
+
+  // Desired number of ComputeInstances in the group.
+  int32 replicas = 2;
+
+  // Reference to an Image resource by name.
+  optional string image_ref = 3;
+
+  // References to SSHKey resources by name.
+  repeated string ssh_key_refs = 4;
+
+  // Subnet ID for network attachment.
+  optional string subnet = 5;
+
+  // SecurityGroup IDs for security policies.
+  repeated string security_groups = 6;
+
+  // User data for all instances in the group.
+  optional string user_data = 7;
+
+  // Region narrows template selection within the class.
+  optional string region = 8;
+
+  // Placement policy for instance distribution.
+  optional ComputeInstanceGroupPlacementPolicy placement_policy = 9;
+}
+
+// Placement policy controls how instances are distributed across infrastructure.
+message ComputeInstanceGroupPlacementPolicy {
+  // Strategy for placement: "pack" fills groups before spilling, "spread" distributes across domains.
+  string strategy = 1;
+
+  // Host variable name to group by for affinity (e.g. "nvlink_domain", "rack").
+  optional string affinity_key = 2;
+}
+
+// The status contains the current state of a compute instance group.
+message ComputeInstanceGroupStatus {
+  // Current lifecycle state of the group.
+  ComputeInstanceGroupState state = 1;
+
+  // Number of instances that are in RUNNING state.
+  int32 ready_replicas = 2;
+
+  // List of ComputeInstance IDs managed by this group.
+  repeated string instances = 3;
+
+  // Human-readable message providing additional details about the current state.
+  optional string message = 4;
+}
+
+// Lifecycle states for ComputeInstanceGroup resources.
+enum ComputeInstanceGroupState {
+  COMPUTE_INSTANCE_GROUP_STATE_UNSPECIFIED = 0;
+  COMPUTE_INSTANCE_GROUP_STATE_PENDING = 1;
+  COMPUTE_INSTANCE_GROUP_STATE_READY = 2;
+  COMPUTE_INSTANCE_GROUP_STATE_SCALING = 3;
+  COMPUTE_INSTANCE_GROUP_STATE_FAILED = 4;
+}
