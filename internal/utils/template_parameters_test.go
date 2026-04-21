@@ -216,23 +216,11 @@ var _ = Describe("ValidateTemplateParameters", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should validate compute instance template parameters correctly", func() {
-			vmTemplate := &privatev1.ComputeInstanceTemplate{
-				Id: "vm-template",
-				Parameters: []*privatev1.ComputeInstanceTemplateParameterDefinition{
-					{
-						Name:     "vm_name",
-						Required: true,
-						Type:     "type.googleapis.com/google.protobuf.StringValue",
-					},
-				},
-			}
-			template = ComputeInstanceTemplateAdapter{vmTemplate}
-
-			stringValue := wrapperspb.String("my-vm")
+		It("should validate cluster template parameters correctly with string type", func() {
+			stringValue := wrapperspb.String("my-cluster")
 			anyValue, err := anypb.New(stringValue)
 			Expect(err).ToNot(HaveOccurred())
-			params["vm_name"] = anyValue
+			params["cluster_name"] = anyValue
 
 			err = ValidateTemplateParameters(template, params)
 			Expect(err).ToNot(HaveOccurred())
