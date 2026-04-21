@@ -32,7 +32,7 @@ create table ssh_keys (
   tenants text[] not null default '{}',
   labels jsonb not null default '{}'::jsonb,
   annotations jsonb not null default '{}'::jsonb,
-  version bigint not null default 0,
+  version integer not null default 0,
   data jsonb not null
 );
 
@@ -46,6 +46,7 @@ create table archived_ssh_keys (
   tenants text[] not null default '{}',
   labels jsonb not null default '{}'::jsonb,
   annotations jsonb not null default '{}'::jsonb,
+  version integer not null default 0,
   data jsonb not null
 );
 
