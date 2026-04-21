@@ -18,6 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2/dsl/core"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/proto"
 
 	privatev1 "github.com/osac-project/fulfillment-service/internal/api/osac/private/v1"
 )
@@ -40,14 +41,14 @@ var _ = Describe("Private compute instance classes", func() {
 				Description: "Dedicated compute tray with 4 NVIDIA B200 GPUs",
 				Backend:     "baremetal",
 				Capabilities: privatev1.ComputeInstanceClassCapabilities_builder{
-					CoresFixed:    96,
-					MemoryGibFixed: 480,
+					CoresFixed:    proto.Int32(96),
+					MemoryGibFixed: proto.Int32(480),
 					Gpus: privatev1.ComputeInstanceClassGPU_builder{
 						Count: 4,
 						Model: "B200",
 					}.Build(),
 					Storage: privatev1.ComputeInstanceClassStorage_builder{
-						BootDiskGibFixed: 960,
+						BootDiskGibFixed: proto.Int32(960),
 					}.Build(),
 				}.Build(),
 				Templates: []*privatev1.ComputeInstanceClassTemplateRef{
@@ -75,10 +76,10 @@ var _ = Describe("Private compute instance classes", func() {
 				Title:   "Small VM",
 				Backend: "virtual",
 				Capabilities: privatev1.ComputeInstanceClassCapabilities_builder{
-					CoresMin:    2,
-					CoresMax:    16,
-					MemoryGibMin: 4,
-					MemoryGibMax: 64,
+					CoresMin:    proto.Int32(2),
+					CoresMax:    proto.Int32(16),
+					MemoryGibMin: proto.Int32(4),
+					MemoryGibMax: proto.Int32(64),
 				}.Build(),
 			}.Build(),
 		}.Build())
