@@ -46,6 +46,7 @@ type PrivateComputeInstancesServer struct {
 	logger            *slog.Logger
 	generic           *GenericServer[*privatev1.ComputeInstance]
 	templatesDao      *dao.GenericDAO[*privatev1.ComputeInstanceTemplate]
+	classesDao        *dao.GenericDAO[*privatev1.ComputeInstanceClass]
 	subnetsDao        *dao.GenericDAO[*privatev1.Subnet]
 	securityGroupsDao *dao.GenericDAO[*privatev1.SecurityGroup]
 }
@@ -102,6 +103,16 @@ func (b *PrivateComputeInstancesServerBuilder) Build() (result *PrivateComputeIn
 		return
 	}
 
+	// Create the ComputeInstanceClasses DAO:
+	classesDao, err := dao.NewGenericDAO[*privatev1.ComputeInstanceClass]().
+		SetLogger(b.logger).
+		SetTenancyLogic(b.tenancyLogic).
+		SetMetricsRegisterer(b.metricsRegisterer).
+		Build()
+	if err != nil {
+		return
+	}
+
 	// Create the Subnets DAO for network validation:
 	subnetsDao, err := dao.NewGenericDAO[*privatev1.Subnet]().
 		SetLogger(b.logger).
@@ -140,6 +151,7 @@ func (b *PrivateComputeInstancesServerBuilder) Build() (result *PrivateComputeIn
 		logger:            b.logger,
 		generic:           generic,
 		templatesDao:      templatesDao,
+		classesDao:        classesDao,
 		subnetsDao:        subnetsDao,
 		securityGroupsDao: securityGroupsDao,
 	}
@@ -187,7 +199,7 @@ func (s *PrivateComputeInstancesServer) Update(ctx context.Context,
 			return
 		}
 	}
-	if hasMaskPrefix(mask, "spec.template", "spec.template_parameters") {
+	if hasMaskPrefix(mask, "spec.template", "spec.template_parameters", "spec.compute_instance_class") {
 		err = s.validateTemplate(ctx, request.GetObject())
 		if err != nil {
 			return
@@ -210,7 +222,10 @@ func (s *PrivateComputeInstancesServer) Signal(ctx context.Context,
 	return
 }
 
-// validateTemplate validates the template ID and parameters in the compute instance spec.
+// validateTemplateOrClass validates that either a template ID or a compute instance class is specified.
+// If compute_instance_class is set, it validates the class exists and is in READY state.
+// If template is set (legacy), it validates the template exists.
+// At least one must be specified.
 func (s *PrivateComputeInstancesServer) validateTemplate(ctx context.Context, vm *privatev1.ComputeInstance) error {
 	if vm == nil {
 		return grpcstatus.Errorf(grpccodes.InvalidArgument, "compute instance is mandatory")
@@ -221,35 +236,49 @@ func (s *PrivateComputeInstancesServer) validateTemplate(ctx context.Context, vm
 		return grpcstatus.Errorf(grpccodes.InvalidArgument, "compute instance spec is mandatory")
 	}
 
+	classID := spec.GetComputeInstanceClass()
 	templateID := spec.GetTemplate()
-	if templateID == "" {
-		return grpcstatus.Errorf(grpccodes.InvalidArgument, "template ID is mandatory")
+
+	if classID == "" && templateID == "" {
+		return grpcstatus.Errorf(grpccodes.InvalidArgument,
+			"either 'compute_instance_class' or 'template' must be specified")
 	}
 
-	// Get the template:
+	if classID != "" {
+		getClassResponse, err := s.classesDao.Get().
+			SetId(classID).
+			Do(ctx)
+		if err != nil {
+			s.logger.ErrorContext(ctx, "ComputeInstanceClass retrieval failed",
+				slog.String("class_id", classID), slog.Any("error", err))
+			return grpcstatus.Errorf(grpccodes.Internal,
+				"failed to retrieve compute instance class '%s'", classID)
+		}
+		class := getClassResponse.GetObject()
+		if class == nil {
+			return grpcstatus.Errorf(grpccodes.InvalidArgument,
+				"compute instance class '%s' does not exist", classID)
+		}
+		if class.GetStatus().GetState() != privatev1.ComputeInstanceClassState_COMPUTE_INSTANCE_CLASS_STATE_READY {
+			return grpcstatus.Errorf(grpccodes.FailedPrecondition,
+				"compute instance class '%s' is not in READY state", classID)
+		}
+		return nil
+	}
+
 	getTemplateResponse, err := s.templatesDao.Get().
 		SetId(templateID).
 		Do(ctx)
 	if err != nil {
-		s.logger.ErrorContext(
-			ctx,
-			"Template retrieval failed",
-			slog.String("template_id", templateID),
-			slog.Any("error", err),
-		)
-		return grpcstatus.Errorf(
-			grpccodes.Internal,
-			"failed to retrieve template '%s'",
-			templateID,
-		)
+		s.logger.ErrorContext(ctx, "Template retrieval failed",
+			slog.String("template_id", templateID), slog.Any("error", err))
+		return grpcstatus.Errorf(grpccodes.Internal,
+			"failed to retrieve template '%s'", templateID)
 	}
 	template := getTemplateResponse.GetObject()
 	if template == nil {
-		return grpcstatus.Errorf(
-			grpccodes.InvalidArgument,
-			"template '%s' does not exist",
-			templateID,
-		)
+		return grpcstatus.Errorf(grpccodes.InvalidArgument,
+			"template '%s' does not exist", templateID)
 	}
 
 	return nil
