@@ -21,11 +21,15 @@ import "osac/private/v1/compute_instance_template_type.proto";
 import "osac/private/v1/compute_instance_type.proto";
 import "osac/private/v1/host_type_type.proto";
 import "osac/private/v1/hub_type.proto";
+import "osac/private/v1/compute_instance_class_type.proto";
+import "osac/private/v1/compute_instance_group_type.proto";
+import "osac/private/v1/image_type.proto";
 import "osac/private/v1/lease_type.proto";
 import "osac/private/v1/network_class_type.proto";
 import "osac/private/v1/organization_type.proto";
 import "osac/private/v1/public_ip_pool_type.proto";
 import "osac/private/v1/public_ip_type.proto";
+import "osac/private/v1/ssh_key_type.proto";
 import "osac/private/v1/security_group_type.proto";
 import "osac/private/v1/subnet_type.proto";
 import "osac/private/v1/user_type.proto";
@@ -56,6 +60,10 @@ message Event {
     PublicIP public_ip = 17;
     Organization organization = 18;
     User user = 19;
+    ComputeInstanceClass compute_instance_class = 20;
+    ComputeInstanceGroup compute_instance_group = 21;
+    Image image = 22;
+    SSHKey ssh_key = 23;
   }
 }
 

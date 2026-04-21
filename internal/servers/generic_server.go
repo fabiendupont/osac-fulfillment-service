@@ -846,6 +846,14 @@ func (s *GenericServer[O]) setPayload(event *privatev1.Event, object proto.Messa
 		event.SetOrganization(object)
 	case *privatev1.User:
 		event.SetUser(object)
+	case *privatev1.ComputeInstanceClass:
+		event.SetComputeInstanceClass(object)
+	case *privatev1.ComputeInstanceGroup:
+		event.SetComputeInstanceGroup(object)
+	case *privatev1.Image:
+		event.SetImage(object)
+	case *privatev1.SSHKey:
+		event.SetSshKey(object)
 	default:
 		return fmt.Errorf("unknown object type '%T'", object)
 	}
