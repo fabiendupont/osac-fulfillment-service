@@ -141,27 +141,15 @@ var _ = Describe("Compute instance templates server", func() {
 			Expect(object.GetDescription()).To(Equal("My description."))
 		})
 
-		It("Creates object with parameters", func() {
+		It("Creates object with backend fields", func() {
 			response, err := server.Create(ctx, publicv1.ComputeInstanceTemplatesCreateRequest_builder{
 				Object: publicv1.ComputeInstanceTemplate_builder{
-					Title:       "My title",
-					Description: "My description.",
-					Parameters: []*publicv1.ComputeInstanceTemplateParameterDefinition{
-						publicv1.ComputeInstanceTemplateParameterDefinition_builder{
-							Name:        "cpu_count",
-							Title:       "CPU Count",
-							Description: "Number of CPUs",
-							Required:    true,
-							Type:        "type.googleapis.com/google.protobuf.Int32Value",
-						}.Build(),
-						publicv1.ComputeInstanceTemplateParameterDefinition_builder{
-							Name:        "memory_gb",
-							Title:       "Memory (GB)",
-							Description: "Amount of memory in GB",
-							Required:    false,
-							Type:        "type.googleapis.com/google.protobuf.Int32Value",
-						}.Build(),
-					},
+					Title:          "My title",
+					Description:    "My description.",
+					Backend:        "metal3",
+					Site:           "paris",
+					Role:           "metal3_bm_rhel",
+					RoleCollection: "osac.templates",
 				}.Build(),
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
@@ -171,12 +159,10 @@ var _ = Describe("Compute instance templates server", func() {
 			Expect(object.GetId()).ToNot(BeEmpty())
 			Expect(object.GetTitle()).To(Equal("My title"))
 			Expect(object.GetDescription()).To(Equal("My description."))
-			parameters := object.GetParameters()
-			Expect(parameters).To(HaveLen(2))
-			Expect(parameters[0].GetName()).To(Equal("cpu_count"))
-			Expect(parameters[0].GetRequired()).To(BeTrue())
-			Expect(parameters[1].GetName()).To(Equal("memory_gb"))
-			Expect(parameters[1].GetRequired()).To(BeFalse())
+			Expect(object.GetBackend()).To(Equal("metal3"))
+			Expect(object.GetSite()).To(Equal("paris"))
+			Expect(object.GetRole()).To(Equal("metal3_bm_rhel"))
+			Expect(object.GetRoleCollection()).To(Equal("osac.templates"))
 		})
 
 		It("List objects", func() {
@@ -309,21 +295,16 @@ var _ = Describe("Compute instance templates server", func() {
 			Expect(object.GetDescription()).To(Equal("My updated description."))
 		})
 
-		It("Updates object parameters", func() {
-			// Create an object with parameters:
+		It("Updates object backend fields", func() {
+			// Create an object:
 			createResponse, err := server.Create(ctx, publicv1.ComputeInstanceTemplatesCreateRequest_builder{
 				Object: publicv1.ComputeInstanceTemplate_builder{
-					Title:       "My title",
-					Description: "My description.",
-					Parameters: []*publicv1.ComputeInstanceTemplateParameterDefinition{
-						publicv1.ComputeInstanceTemplateParameterDefinition_builder{
-							Name:        "cpu_count",
-							Title:       "CPU Count",
-							Description: "Number of CPUs",
-							Required:    true,
-							Type:        "type.googleapis.com/google.protobuf.Int32Value",
-						}.Build(),
-					},
+					Title:          "My title",
+					Description:    "My description.",
+					Backend:        "kubevirt",
+					Site:           "paris",
+					Role:           "ocp_virt_vm",
+					RoleCollection: "osac.templates",
 				}.Build(),
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
@@ -333,24 +314,14 @@ var _ = Describe("Compute instance templates server", func() {
 			id := createdObject.GetId()
 			Expect(id).ToNot(BeEmpty())
 
-			// Update the object with new parameters:
+			// Update the object:
 			updateResponse, err := server.Update(ctx, publicv1.ComputeInstanceTemplatesUpdateRequest_builder{
 				Object: publicv1.ComputeInstanceTemplate_builder{
-					Id:          id,
-					Title:       "My title",
-					Description: "My description.",
-					Parameters: []*publicv1.ComputeInstanceTemplateParameterDefinition{
-						publicv1.ComputeInstanceTemplateParameterDefinition_builder{
-							Name:        "memory_gb",
-							Title:       "Memory (GB)",
-							Description: "Amount of memory in GB",
-							Required:    false,
-							Type:        "type.googleapis.com/google.protobuf.Int32Value",
-						}.Build(),
-					},
+					Id:   id,
+					Site: "london",
 				}.Build(),
 				UpdateMask: &fieldmaskpb.FieldMask{
-					Paths: []string{"parameters"},
+					Paths: []string{"site"},
 				},
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
@@ -358,10 +329,7 @@ var _ = Describe("Compute instance templates server", func() {
 			object := updateResponse.GetObject()
 			Expect(object).ToNot(BeNil())
 			Expect(object.GetId()).To(Equal(id))
-			parameters := object.GetParameters()
-			Expect(parameters).To(HaveLen(1))
-			Expect(parameters[0].GetName()).To(Equal("memory_gb"))
-			Expect(parameters[0].GetRequired()).To(BeFalse())
+			Expect(object.GetSite()).To(Equal("london"))
 		})
 
 		It("Deletes object", func() {
