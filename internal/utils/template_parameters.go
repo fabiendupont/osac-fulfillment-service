@@ -170,34 +170,12 @@ func (a ClusterTemplateAdapter) GetParameters() []TemplateParameterDefinition {
 	return result
 }
 
-// ComputeInstanceTemplateAdapter adapts ComputeInstanceTemplate to the Template interface
-type ComputeInstanceTemplateAdapter struct {
-	*privatev1.ComputeInstanceTemplate
-}
-
-func (a ComputeInstanceTemplateAdapter) GetParameters() []TemplateParameterDefinition {
-	params := a.ComputeInstanceTemplate.GetParameters()
-	result := make([]TemplateParameterDefinition, len(params))
-	for i, param := range params {
-		result[i] = param
-	}
-	return result
-}
-
 // ValidateClusterTemplateParameters validates cluster template parameters
 func ValidateClusterTemplateParameters(
 	template *privatev1.ClusterTemplate,
 	providedParameters map[string]*anypb.Any,
 ) error {
 	return ValidateTemplateParameters(ClusterTemplateAdapter{template}, providedParameters)
-}
-
-// ValidateComputeInstanceTemplateParameters validates compute instance template parameters
-func ValidateComputeInstanceTemplateParameters(
-	template *privatev1.ComputeInstanceTemplate,
-	providedParameters map[string]*anypb.Any,
-) error {
-	return ValidateTemplateParameters(ComputeInstanceTemplateAdapter{template}, providedParameters)
 }
 
 // ConvertTemplateParametersToJSON converts template parameters from protobuf Any format to JSON string.
