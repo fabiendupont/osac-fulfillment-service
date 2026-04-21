@@ -169,22 +169,27 @@ message ComputeInstanceSpec {
   //
   // This field is immutable after creation - the guest OS type cannot be changed after the
   // compute instance is provisioned.
-  //
-  // Example (when converted to JSON):
-  //
-  //    {
-  //      "spec": {
-  //        "template": "123",
-  //        "is_windows": true
-  //      }
-  //    }
-  //
   optional bool is_windows = 16;
 
   // Reference to an instance type by name. The API validates that the instance type exists and is
   // not OBSOLETE, but does NOT resolve cores/memory_gib — resolution happens in the reconciler.
   // Mutually exclusive with direct cores/memory_gib fields.
   optional string instance_type = 17;
+
+  // Reference to a ComputeInstanceClass. Replaces direct template selection.
+  // When set, the system selects a template from the class based on region and availability.
+  optional string compute_instance_class = 18;
+
+  // Region narrows template selection within the class to a specific region.
+  optional string region = 19;
+
+  // Reference to an Image resource by name. Replaces inline image configuration.
+  // When set, the system resolves the image source and boot method from the Image resource.
+  optional string image_ref = 20;
+
+  // References to SSHKey resources by name. Replaces inline ssh_key.
+  // Multiple keys can be specified for injection at provisioning time.
+  repeated string ssh_key_refs = 21;
 }
 
 // The status contains the details of the compute instance provided by the system.

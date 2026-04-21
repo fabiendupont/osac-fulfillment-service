@@ -54,12 +54,15 @@ message NetworkAttachment {
 }
 
 message ComputeInstanceSpec {
-  // Copies of the public fields.
+  // Reference to the compute instance template (deprecated, use compute_instance_class).
   string template = 1;
+
+  // Template parameters (deprecated, use standardized fields).
   map<string, google.protobuf.Any> template_parameters = 2;
+
   optional google.protobuf.Timestamp restart_requested_at = 3;
 
-  // Image configuration.
+  // Image configuration (deprecated inline form, use image_ref for Image resource reference).
   optional ComputeInstanceImage image = 4;
 
   // Number of CPU cores.
@@ -68,7 +71,7 @@ message ComputeInstanceSpec {
   // Memory size in GiB.
   optional int32 memory_gib = 6;
 
-  // SSH public key.
+  // SSH public key (deprecated, use ssh_key_refs).
   optional string ssh_key = 7;
 
   // Boot disk configuration.
@@ -101,6 +104,18 @@ message ComputeInstanceSpec {
   // not OBSOLETE, but does NOT resolve cores/memory_gib — resolution happens in the reconciler.
   // Mutually exclusive with direct cores/memory_gib fields.
   optional string instance_type = 17;
+
+  // Reference to a ComputeInstanceClass. Replaces direct template selection.
+  optional string compute_instance_class = 18;
+
+  // Region narrows template selection within the class to a specific region.
+  optional string region = 19;
+
+  // Reference to an Image resource by name. Replaces inline image configuration.
+  optional string image_ref = 20;
+
+  // References to SSHKey resources by name. Replaces inline ssh_key.
+  repeated string ssh_key_refs = 21;
 }
 
 message ComputeInstanceStatus {
