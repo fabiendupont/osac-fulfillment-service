@@ -26,8 +26,12 @@ import "osac/private/v1/compute_instance_template_type.proto";
 import "osac/private/v1/compute_instance_type.proto";
 import "osac/private/v1/host_type_type.proto";
 import "osac/private/v1/hub_type.proto";
+import "osac/private/v1/compute_instance_class_type.proto";
+import "osac/private/v1/compute_instance_group_type.proto";
 import "osac/private/v1/identity_provider_type.proto";
+import "osac/private/v1/image_type.proto";
 import "osac/private/v1/instance_type_type.proto";
+import "osac/private/v1/lease_type.proto";
 import "osac/private/v1/network_class_type.proto";
 import "osac/private/v1/organization_type.proto";
 import "osac/private/v1/project_type.proto";
@@ -37,6 +41,7 @@ import "osac/private/v1/public_ip_pool_type.proto";
 import "osac/private/v1/public_ip_type.proto";
 import "osac/private/v1/role_binding_type.proto";
 import "osac/private/v1/role_type.proto";
+import "osac/private/v1/ssh_key_type.proto";
 import "osac/private/v1/security_group_type.proto";
 import "osac/private/v1/storage_backend_type.proto";
 import "osac/private/v1/subnet_type.proto";
@@ -80,6 +85,10 @@ message Event {
     StorageBackend storage_backend = 30;
     Tenant tenant = 31;
     IdentityProvider identity_provider = 32;
+    ComputeInstanceClass compute_instance_class = 33;
+    ComputeInstanceGroup compute_instance_group = 34;
+    Image image = 35;
+    SSHKey ssh_key = 36;
   }
 }
 

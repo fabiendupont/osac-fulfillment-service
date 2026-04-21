@@ -908,7 +908,6 @@ func (s *GenericServer[O]) setPayload(event *privatev1.Event, object proto.Messa
 		}
 		event.SetStorageBackend(object)
 	case *privatev1.IdentityProvider:
-		// Redact sensitive fields before publishing - controller will fetch them separately via API
 		object = proto.Clone(object).(*privatev1.IdentityProvider)
 		spec := object.GetSpec()
 		if spec != nil {
@@ -920,6 +919,14 @@ func (s *GenericServer[O]) setPayload(event *privatev1.Event, object proto.Messa
 			}
 		}
 		event.SetIdentityProvider(object)
+	case *privatev1.ComputeInstanceClass:
+		event.SetComputeInstanceClass(object)
+	case *privatev1.ComputeInstanceGroup:
+		event.SetComputeInstanceGroup(object)
+	case *privatev1.Image:
+		event.SetImage(object)
+	case *privatev1.SSHKey:
+		event.SetSshKey(object)
 	default:
 		return fmt.Errorf("unknown object type '%T'", object)
 	}
