@@ -1,0 +1,70 @@
+--
+-- Copyright (c) 2025 Red Hat Inc.
+--
+-- Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+-- the License. You may obtain a copy of the License at
+--
+--   http://www.apache.org/licenses/LICENSE-2.0
+--
+-- Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+-- an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+-- specific language governing permissions and limitations under the License.
+--
+
+-- Create the images tables:
+--
+-- This migration establishes the database schema for Image resources following the generic schema pattern.
+-- Image represents a bootable OS image in the provider's catalog. Each image includes metadata about the
+-- operating system, architecture, and boot method, as well as a reference to the image source.
+--
+-- The data column stores:
+-- - title: Human-friendly short description
+-- - description: Human-friendly long description (Markdown)
+-- - source_type: Type of image source (e.g., "registry")
+-- - source_ref: Reference to the image source (e.g., OCI image URL)
+-- - os: Operating system name
+-- - version: Operating system version
+-- - architecture: CPU architecture
+-- - boot_method: Boot method (ignition, cloud-init, kickstart)
+-- - compatibility: List of compatible ComputeInstanceClass IDs
+-- - status: ImageStatus (state, message)
+-- as JSONB.
+--
+create table images (
+  id text not null primary key,
+  name text not null default '',
+  creation_timestamp timestamp with time zone not null default now(),
+  deletion_timestamp timestamp with time zone not null default 'epoch',
+  finalizers text[] not null default '{}',
+  creators text[] not null default '{}',
+  tenants text[] not null default '{}',
+  labels jsonb not null default '{}'::jsonb,
+  annotations jsonb not null default '{}'::jsonb,
+  version bigint not null default 0,
+  data jsonb not null
+);
+
+create table archived_images (
+  id text not null,
+  name text not null default '',
+  creation_timestamp timestamp with time zone not null,
+  deletion_timestamp timestamp with time zone not null,
+  archival_timestamp timestamp with time zone not null default now(),
+  creators text[] not null default '{}',
+  tenants text[] not null default '{}',
+  labels jsonb not null default '{}'::jsonb,
+  annotations jsonb not null default '{}'::jsonb,
+  data jsonb not null
+);
+
+-- Add indexes on the name column for fast lookups:
+create index images_by_name on images (name);
+
+-- Add indexes on the creators column for owner-based queries:
+create index images_by_owner on images using gin (creators);
+
+-- Add indexes on the tenants column for tenant isolation:
+create index images_by_tenant on images using gin (tenants);
+
+-- Add indexes on the labels column for label-based queries:
+create index images_by_label on images using gin (labels);

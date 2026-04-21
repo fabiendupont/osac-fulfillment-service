@@ -666,6 +666,90 @@ func (c *runnerContext) run(cmd *cobra.Command, argv []string) error {
 	}
 	privatev1.RegisterNetworkClassesServer(grpcServer, privateNetworkClassesServer)
 
+	// Create the compute instance classes server:
+	c.logger.InfoContext(ctx, "Creating compute instance classes server")
+	computeInstanceClassesServer, err := servers.NewComputeInstanceClassesServer().
+		SetLogger(c.logger).
+		SetNotifier(notifier).
+		SetAttributionLogic(publicAttributionLogic).
+		SetTenancyLogic(publicTenancyLogic).
+		SetMetricsRegisterer(metricsRegisterer).
+		Build()
+	if err != nil {
+		return fmt.Errorf("failed to create compute instance classes server: %w", err)
+	}
+	publicv1.RegisterComputeInstanceClassesServer(grpcServer, computeInstanceClassesServer)
+
+	// Create the private compute instance classes server:
+	c.logger.InfoContext(ctx, "Creating private compute instance classes server")
+	privateComputeInstanceClassesServer, err := servers.NewPrivateComputeInstanceClassesServer().
+		SetLogger(c.logger).
+		SetNotifier(notifier).
+		SetAttributionLogic(privateAttributionLogic).
+		SetTenancyLogic(privateTenancyLogic).
+		SetMetricsRegisterer(metricsRegisterer).
+		Build()
+	if err != nil {
+		return fmt.Errorf("failed to create private compute instance classes server: %w", err)
+	}
+	privatev1.RegisterComputeInstanceClassesServer(grpcServer, privateComputeInstanceClassesServer)
+
+	// Create the images server:
+	c.logger.InfoContext(ctx, "Creating images server")
+	imagesServer, err := servers.NewImagesServer().
+		SetLogger(c.logger).
+		SetNotifier(notifier).
+		SetAttributionLogic(publicAttributionLogic).
+		SetTenancyLogic(publicTenancyLogic).
+		SetMetricsRegisterer(metricsRegisterer).
+		Build()
+	if err != nil {
+		return fmt.Errorf("failed to create images server: %w", err)
+	}
+	publicv1.RegisterImagesServer(grpcServer, imagesServer)
+
+	// Create the private images server:
+	c.logger.InfoContext(ctx, "Creating private images server")
+	privateImagesServer, err := servers.NewPrivateImagesServer().
+		SetLogger(c.logger).
+		SetNotifier(notifier).
+		SetAttributionLogic(privateAttributionLogic).
+		SetTenancyLogic(privateTenancyLogic).
+		SetMetricsRegisterer(metricsRegisterer).
+		Build()
+	if err != nil {
+		return fmt.Errorf("failed to create private images server: %w", err)
+	}
+	privatev1.RegisterImagesServer(grpcServer, privateImagesServer)
+
+	// Create the SSH keys server:
+	c.logger.InfoContext(ctx, "Creating SSH keys server")
+	sshKeysServer, err := servers.NewSSHKeysServer().
+		SetLogger(c.logger).
+		SetNotifier(notifier).
+		SetAttributionLogic(publicAttributionLogic).
+		SetTenancyLogic(publicTenancyLogic).
+		SetMetricsRegisterer(metricsRegisterer).
+		Build()
+	if err != nil {
+		return fmt.Errorf("failed to create SSH keys server: %w", err)
+	}
+	publicv1.RegisterSSHKeysServer(grpcServer, sshKeysServer)
+
+	// Create the private SSH keys server:
+	c.logger.InfoContext(ctx, "Creating private SSH keys server")
+	privateSSHKeysServer, err := servers.NewPrivateSSHKeysServer().
+		SetLogger(c.logger).
+		SetNotifier(notifier).
+		SetAttributionLogic(privateAttributionLogic).
+		SetTenancyLogic(privateTenancyLogic).
+		SetMetricsRegisterer(metricsRegisterer).
+		Build()
+	if err != nil {
+		return fmt.Errorf("failed to create private SSH keys server: %w", err)
+	}
+	privatev1.RegisterSSHKeysServer(grpcServer, privateSSHKeysServer)
+
 	// Create the private leases server:
 	c.logger.InfoContext(ctx, "Creating private leases server")
 	privateLeasesServer, err := servers.NewPrivateLeasesServer().

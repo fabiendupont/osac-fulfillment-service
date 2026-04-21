@@ -19,21 +19,15 @@ import (
 	"log/slog"
 	"strings"
 
-	"maps"
-
 	"github.com/prometheus/client_golang/prometheus"
-
 	grpccodes "google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	privatev1 "github.com/osac-project/fulfillment-service/internal/api/osac/private/v1"
 	"github.com/osac-project/fulfillment-service/internal/auth"
 	"github.com/osac-project/fulfillment-service/internal/database"
 	"github.com/osac-project/fulfillment-service/internal/database/dao"
-	"github.com/osac-project/fulfillment-service/internal/utils"
 )
 
 type PrivateComputeInstancesServerBuilder struct {
@@ -172,14 +166,8 @@ func (s *PrivateComputeInstancesServer) Create(ctx context.Context,
 		return
 	}
 
-	// Fetch and validate template:
-	template, err := s.fetchAndValidateTemplate(ctx, request.GetObject())
-	if err != nil {
-		return
-	}
-
-	// Apply template spec defaults and validate that all required spec fields are present.
-	err = s.applySpecDefaults(request.GetObject().GetSpec(), template)
+	// Validate template:
+	err = s.validateTemplate(ctx, request.GetObject())
 	if err != nil {
 		return
 	}
@@ -199,9 +187,11 @@ func (s *PrivateComputeInstancesServer) Update(ctx context.Context,
 			return
 		}
 	}
-	err = s.validateTemplateImmutability(ctx, request)
-	if err != nil {
-		return
+	if hasMaskPrefix(mask, "spec.template", "spec.template_parameters") {
+		err = s.validateTemplate(ctx, request.GetObject())
+		if err != nil {
+			return
+		}
 	}
 
 	err = s.generic.Update(ctx, request, &response)
@@ -220,138 +210,46 @@ func (s *PrivateComputeInstancesServer) Signal(ctx context.Context,
 	return
 }
 
-// fetchAndValidateTemplate fetches the template, validates parameters in the compute instance spec,
-// applies template parameter defaults, and returns the template.
-func (s *PrivateComputeInstancesServer) fetchAndValidateTemplate(ctx context.Context, vm *privatev1.ComputeInstance) (*privatev1.ComputeInstanceTemplate, error) {
+// validateTemplate validates the template ID and parameters in the compute instance spec.
+func (s *PrivateComputeInstancesServer) validateTemplate(ctx context.Context, vm *privatev1.ComputeInstance) error {
 	if vm == nil {
-		return nil, grpcstatus.Errorf(grpccodes.InvalidArgument, "compute instance is mandatory")
+		return grpcstatus.Errorf(grpccodes.InvalidArgument, "compute instance is mandatory")
 	}
 
 	spec := vm.GetSpec()
 	if spec == nil {
-		return nil, grpcstatus.Errorf(grpccodes.InvalidArgument, "compute instance spec is mandatory")
+		return grpcstatus.Errorf(grpccodes.InvalidArgument, "compute instance spec is mandatory")
 	}
 
-	template, err := s.fetchTemplate(ctx, spec.GetTemplate())
-	if err != nil {
-		return nil, err
-	}
-
-	// Validate template parameters:
-	vmParameters := spec.GetTemplateParameters()
-	err = utils.ValidateComputeInstanceTemplateParameters(template, vmParameters)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set default values for template parameters:
-	actualVmParameters := utils.ProcessTemplateParametersWithDefaults(
-		utils.ComputeInstanceTemplateAdapter{ComputeInstanceTemplate: template},
-		vmParameters,
-	)
-	spec.SetTemplateParameters(actualVmParameters)
-
-	return template, nil
-}
-
-// fetchTemplate fetches a compute instance template
-func (s *PrivateComputeInstancesServer) fetchTemplate(ctx context.Context, templateID string) (*privatev1.ComputeInstanceTemplate, error) {
+	templateID := spec.GetTemplate()
 	if templateID == "" {
-		return nil, grpcstatus.Errorf(grpccodes.InvalidArgument, "template ID is mandatory")
+		return grpcstatus.Errorf(grpccodes.InvalidArgument, "template ID is mandatory")
 	}
 
+	// Get the template:
 	getTemplateResponse, err := s.templatesDao.Get().
 		SetId(templateID).
 		Do(ctx)
 	if err != nil {
-		var notFoundErr *dao.ErrNotFound
-		if errors.As(err, &notFoundErr) {
-			return nil, grpcstatus.Errorf(grpccodes.InvalidArgument,
-				"template '%s' does not exist", templateID)
-		}
 		s.logger.ErrorContext(
 			ctx,
 			"Template retrieval failed",
 			slog.String("template_id", templateID),
 			slog.Any("error", err),
 		)
-		return nil, grpcstatus.Errorf(
+		return grpcstatus.Errorf(
 			grpccodes.Internal,
 			"failed to retrieve template '%s'",
 			templateID,
 		)
 	}
-
 	template := getTemplateResponse.GetObject()
 	if template == nil {
-		return nil, grpcstatus.Errorf(
+		return grpcstatus.Errorf(
 			grpccodes.InvalidArgument,
 			"template '%s' does not exist",
 			templateID,
 		)
-	}
-	return template, nil
-}
-
-// applySpecDefaults applies template spec defaults to the spec in place and validates
-// that all required fields are present. User-provided values are never overridden.
-func (s *PrivateComputeInstancesServer) applySpecDefaults(
-	spec *privatev1.ComputeInstanceSpec,
-	template *privatev1.ComputeInstanceTemplate,
-) error {
-	utils.ApplySpecDefaults(spec, template.GetSpecDefaults())
-	return utils.ValidateRequiredSpecFields(spec)
-}
-
-// validateTemplateImmutability ensures that the template and template_parameters fields
-// cannot be changed after compute instance creation.
-func (s *PrivateComputeInstancesServer) validateTemplateImmutability(ctx context.Context,
-	request *privatev1.ComputeInstancesUpdateRequest) error {
-	updateMask := request.GetUpdateMask()
-	updatingTemplate := hasMaskPrefix(updateMask, "spec.template")
-	updatingTemplateParams := hasMaskPrefix(updateMask, "spec.template_parameters")
-
-	if !updatingTemplate && !updatingTemplateParams {
-		return nil
-	}
-
-	ci := request.GetObject()
-	if ci == nil {
-		return grpcstatus.Errorf(grpccodes.InvalidArgument, "compute instance is mandatory")
-	}
-	id := ci.GetId()
-	if id == "" {
-		return grpcstatus.Errorf(grpccodes.InvalidArgument, "compute instance id is mandatory")
-	}
-
-	getResponse, err := s.generic.dao.Get().SetId(id).Do(ctx)
-	if err != nil {
-		return err
-	}
-	existingCI := getResponse.GetObject()
-
-	existingSpec := existingCI.GetSpec()
-	newSpec := request.GetObject().GetSpec()
-
-	if updatingTemplate && existingSpec.GetTemplate() != newSpec.GetTemplate() {
-		return grpcstatus.Errorf(
-			grpccodes.InvalidArgument,
-			"cannot change spec.template from '%s' to '%s': template is immutable",
-			existingSpec.GetTemplate(),
-			newSpec.GetTemplate(),
-		)
-	}
-
-	if updatingTemplateParams {
-		templateParamsEqual := func(first, second *anypb.Any) bool {
-			return proto.Equal(first, second)
-		}
-		if !maps.EqualFunc(existingSpec.GetTemplateParameters(), newSpec.GetTemplateParameters(), templateParamsEqual) {
-			return grpcstatus.Errorf(
-				grpccodes.InvalidArgument,
-				"cannot change spec.template_parameters: template parameters are immutable",
-			)
-		}
 	}
 
 	return nil
