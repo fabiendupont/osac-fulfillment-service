@@ -179,10 +179,16 @@ func (x *ComputeInstanceGroupsListRequest) ClearOrder() {
 type ComputeInstanceGroupsListRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// Index of the first result. If not specified the default value will be zero.
 	Offset *int32
-	Limit  *int32
+	// Maximum number of results to be returned by the server. When not specified all the results will be returned. Note
+	// that there may not be enough results to return, and that the server may decide, for performance reasons, to return
+	// less results than requested.
+	Limit *int32
+	// Filter criteria.
 	Filter *string
-	Order  *string
+	// Order criteria.
+	Order *string
 }
 
 func (b0 ComputeInstanceGroupsListRequest_builder) Build() *ComputeInstanceGroupsListRequest {
@@ -280,8 +286,11 @@ func (x *ComputeInstanceGroupsListResponse) SetItems(v []*ComputeInstanceGroup) 
 type ComputeInstanceGroupsListResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	Size  int32
+	// Actual number of items returned.
+	Size int32
+	// Total number of items of the collection that match the search criteria.
 	Total int32
+	// List of results.
 	Items []*ComputeInstanceGroup
 }
 
@@ -750,7 +759,8 @@ type ComputeInstanceGroupsUpdateRequest_builder struct {
 
 	Object     *ComputeInstanceGroup
 	UpdateMask *fieldmaskpb.FieldMask
-	Lock       bool
+	// Lock enables optimistic locking.
+	Lock bool
 }
 
 func (b0 ComputeInstanceGroupsUpdateRequest_builder) Build() *ComputeInstanceGroupsUpdateRequest {
