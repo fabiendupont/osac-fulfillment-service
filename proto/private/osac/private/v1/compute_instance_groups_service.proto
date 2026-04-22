@@ -23,12 +23,13 @@ message ComputeInstanceGroupsListRequest {
   optional int32 offset = 1;
   optional int32 limit = 2;
   optional string filter = 3;
+  optional string order = 4;
 }
 
 message ComputeInstanceGroupsListResponse {
-  int32 size = 1;
-  int32 total = 2;
-  repeated ComputeInstanceGroup items = 3;
+  int32 size = 3;
+  int32 total = 4;
+  repeated ComputeInstanceGroup items = 5;
 }
 
 message ComputeInstanceGroupsGetRequest {
