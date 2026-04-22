@@ -48,6 +48,7 @@ type PrivateComputeInstancesServer struct {
 	templatesDao      *dao.GenericDAO[*privatev1.ComputeInstanceTemplate]
 	classesDao        *dao.GenericDAO[*privatev1.ComputeInstanceClass]
 	imagesDao         *dao.GenericDAO[*privatev1.Image]
+	sshKeysDao        *dao.GenericDAO[*privatev1.SSHKey]
 	subnetsDao        *dao.GenericDAO[*privatev1.Subnet]
 	securityGroupsDao *dao.GenericDAO[*privatev1.SecurityGroup]
 }
@@ -124,6 +125,16 @@ func (b *PrivateComputeInstancesServerBuilder) Build() (result *PrivateComputeIn
 		return
 	}
 
+	// Create the SSHKeys DAO:
+	sshKeysDao, err := dao.NewGenericDAO[*privatev1.SSHKey]().
+		SetLogger(b.logger).
+		SetTenancyLogic(b.tenancyLogic).
+		SetMetricsRegisterer(b.metricsRegisterer).
+		Build()
+	if err != nil {
+		return
+	}
+
 	// Create the Subnets DAO for network validation:
 	subnetsDao, err := dao.NewGenericDAO[*privatev1.Subnet]().
 		SetLogger(b.logger).
@@ -164,6 +175,7 @@ func (b *PrivateComputeInstancesServerBuilder) Build() (result *PrivateComputeIn
 		templatesDao:      templatesDao,
 		classesDao:        classesDao,
 		imagesDao:         imagesDao,
+		sshKeysDao:        sshKeysDao,
 		subnetsDao:        subnetsDao,
 		securityGroupsDao: securityGroupsDao,
 	}
@@ -190,8 +202,14 @@ func (s *PrivateComputeInstancesServer) Create(ctx context.Context,
 		return
 	}
 
-	// Validate template:
+	// Validate template or class:
 	err = s.validateTemplate(ctx, request.GetObject())
+	if err != nil {
+		return
+	}
+
+	// Validate SSH key references:
+	err = s.validateSSHKeyRefs(ctx, request.GetObject())
 	if err != nil {
 		return
 	}
@@ -286,6 +304,9 @@ func (s *PrivateComputeInstancesServer) validateTemplate(ctx context.Context, vm
 		return nil
 	}
 
+	s.logger.WarnContext(ctx, "Deprecated: 'template' field used instead of 'compute_instance_class'",
+		slog.String("template_id", templateID))
+
 	getTemplateResponse, err := s.templatesDao.Get().
 		SetId(templateID).
 		Do(ctx)
@@ -301,6 +322,28 @@ func (s *PrivateComputeInstancesServer) validateTemplate(ctx context.Context, vm
 			"template '%s' does not exist", templateID)
 	}
 
+	return nil
+}
+
+func (s *PrivateComputeInstancesServer) validateSSHKeyRefs(ctx context.Context, vm *privatev1.ComputeInstance) error {
+	if vm == nil || vm.GetSpec() == nil {
+		return nil
+	}
+	for _, keyRef := range vm.GetSpec().GetSshKeyRefs() {
+		getResponse, err := s.sshKeysDao.Get().
+			SetId(keyRef).
+			Do(ctx)
+		if err != nil {
+			s.logger.ErrorContext(ctx, "SSHKey retrieval failed",
+				slog.String("ssh_key_ref", keyRef), slog.Any("error", err))
+			return grpcstatus.Errorf(grpccodes.Internal,
+				"failed to retrieve SSH key '%s'", keyRef)
+		}
+		if getResponse.GetObject() == nil {
+			return grpcstatus.Errorf(grpccodes.InvalidArgument,
+				"SSH key '%s' does not exist", keyRef)
+		}
+	}
 	return nil
 }
 

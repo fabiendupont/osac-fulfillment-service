@@ -228,7 +228,7 @@ var _ = Describe("Images server", func() {
 					Title:       "Updated RHEL 9.4",
 					Description: "Updated description.",
 					SourceType:  "registry",
-					SourceRef:   "quay.io/rhel/rhel9:9.4-updated",
+					SourceRef:   "quay.io/rhel/rhel9:9.4",
 					BootMethod:  "cloud-init",
 				}.Build(),
 			}.Build())
