@@ -253,6 +253,12 @@ func (c *runnerContext) run(cmd *cobra.Command, args []string) error {
 	if !cfg.Armed() {
 		return fmt.Errorf("there is no configuration, run the 'login' command")
 	}
+	if c.args.template != "" && c.args.class != "" {
+		return fmt.Errorf("--class and --template are mutually exclusive")
+	}
+	if c.args.imageRef != "" && c.args.imageSourceRef != "" {
+		return fmt.Errorf("--image-ref and --image are mutually exclusive")
+	}
 
 	// Create the gRPC connection from the configuration:
 	conn, err := cfg.Connect(ctx, cmd.Flags())

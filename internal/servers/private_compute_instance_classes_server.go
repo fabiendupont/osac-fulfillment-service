@@ -212,7 +212,30 @@ func (s *PrivateComputeInstanceClassesServer) validateComputeInstanceClass(ctx c
 		return grpcstatus.Errorf(grpccodes.InvalidArgument, "field 'title' is required")
 	}
 
-	// CIC-VAL-03: Check immutable fields (only on Update)
+	// CIC-VAL-03: Validate capability range consistency
+	caps := newCIC.GetCapabilities()
+	if caps != nil {
+		if caps.GetCoresFixed() != 0 && (caps.GetCoresMin() != 0 || caps.GetCoresMax() != 0) {
+			return grpcstatus.Errorf(grpccodes.InvalidArgument,
+				"'capabilities.cores_fixed' and 'capabilities.cores_min/cores_max' are mutually exclusive")
+		}
+		if caps.GetCoresMin() > caps.GetCoresMax() && caps.GetCoresMax() != 0 {
+			return grpcstatus.Errorf(grpccodes.InvalidArgument,
+				"'capabilities.cores_min' (%d) must be <= 'capabilities.cores_max' (%d)",
+				caps.GetCoresMin(), caps.GetCoresMax())
+		}
+		if caps.GetMemoryGibFixed() != 0 && (caps.GetMemoryGibMin() != 0 || caps.GetMemoryGibMax() != 0) {
+			return grpcstatus.Errorf(grpccodes.InvalidArgument,
+				"'capabilities.memory_gib_fixed' and 'capabilities.memory_gib_min/memory_gib_max' are mutually exclusive")
+		}
+		if caps.GetMemoryGibMin() > caps.GetMemoryGibMax() && caps.GetMemoryGibMax() != 0 {
+			return grpcstatus.Errorf(grpccodes.InvalidArgument,
+				"'capabilities.memory_gib_min' (%d) must be <= 'capabilities.memory_gib_max' (%d)",
+				caps.GetMemoryGibMin(), caps.GetMemoryGibMax())
+		}
+	}
+
+	// CIC-VAL-04: Check immutable fields (only on Update)
 	if existingCIC != nil {
 		// backend is immutable
 		if newCIC.GetBackend() != existingCIC.GetBackend() {
