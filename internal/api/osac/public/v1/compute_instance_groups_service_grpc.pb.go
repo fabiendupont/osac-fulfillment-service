@@ -43,10 +43,15 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ComputeInstanceGroupsClient interface {
+	// Retrieves the list of compute instance groups.
 	List(ctx context.Context, in *ComputeInstanceGroupsListRequest, opts ...grpc.CallOption) (*ComputeInstanceGroupsListResponse, error)
+	// Retrieves the details of one specific compute instance group.
 	Get(ctx context.Context, in *ComputeInstanceGroupsGetRequest, opts ...grpc.CallOption) (*ComputeInstanceGroupsGetResponse, error)
+	// Creates a new compute instance group.
 	Create(ctx context.Context, in *ComputeInstanceGroupsCreateRequest, opts ...grpc.CallOption) (*ComputeInstanceGroupsCreateResponse, error)
+	// Updates an existing compute instance group.
 	Update(ctx context.Context, in *ComputeInstanceGroupsUpdateRequest, opts ...grpc.CallOption) (*ComputeInstanceGroupsUpdateResponse, error)
+	// Deletes a compute instance group.
 	Delete(ctx context.Context, in *ComputeInstanceGroupsDeleteRequest, opts ...grpc.CallOption) (*ComputeInstanceGroupsDeleteResponse, error)
 }
 
@@ -112,10 +117,15 @@ func (c *computeInstanceGroupsClient) Delete(ctx context.Context, in *ComputeIns
 // All implementations must embed UnimplementedComputeInstanceGroupsServer
 // for forward compatibility.
 type ComputeInstanceGroupsServer interface {
+	// Retrieves the list of compute instance groups.
 	List(context.Context, *ComputeInstanceGroupsListRequest) (*ComputeInstanceGroupsListResponse, error)
+	// Retrieves the details of one specific compute instance group.
 	Get(context.Context, *ComputeInstanceGroupsGetRequest) (*ComputeInstanceGroupsGetResponse, error)
+	// Creates a new compute instance group.
 	Create(context.Context, *ComputeInstanceGroupsCreateRequest) (*ComputeInstanceGroupsCreateResponse, error)
+	// Updates an existing compute instance group.
 	Update(context.Context, *ComputeInstanceGroupsUpdateRequest) (*ComputeInstanceGroupsUpdateResponse, error)
+	// Deletes a compute instance group.
 	Delete(context.Context, *ComputeInstanceGroupsDeleteRequest) (*ComputeInstanceGroupsDeleteResponse, error)
 	mustEmbedUnimplementedComputeInstanceGroupsServer()
 }

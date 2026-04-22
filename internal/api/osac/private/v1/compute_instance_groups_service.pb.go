@@ -38,11 +38,17 @@ const (
 )
 
 type ComputeInstanceGroupsListRequest struct {
-	state         protoimpl.MessageState `protogen:"hybrid.v1"`
-	Offset        *int32                 `protobuf:"varint,1,opt,name=offset,proto3,oneof" json:"offset,omitempty"`
-	Limit         *int32                 `protobuf:"varint,2,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
-	Filter        *string                `protobuf:"bytes,3,opt,name=filter,proto3,oneof" json:"filter,omitempty"`
-	Order         *string                `protobuf:"bytes,4,opt,name=order,proto3,oneof" json:"order,omitempty"`
+	state protoimpl.MessageState `protogen:"hybrid.v1"`
+	// Index of the first result. If not specified the default value will be zero.
+	Offset *int32 `protobuf:"varint,1,opt,name=offset,proto3,oneof" json:"offset,omitempty"`
+	// Maximum number of results to be returned by the server. When not specified all the results will be returned. Note
+	// that there may not be enough results to return, and that the server may decide, for performance reasons, to return
+	// less results than requested.
+	Limit *int32 `protobuf:"varint,2,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
+	// Filter criteria.
+	Filter *string `protobuf:"bytes,3,opt,name=filter,proto3,oneof" json:"filter,omitempty"`
+	// Order criteria.
+	Order         *string `protobuf:"bytes,4,opt,name=order,proto3,oneof" json:"order,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -163,10 +169,16 @@ func (x *ComputeInstanceGroupsListRequest) ClearOrder() {
 type ComputeInstanceGroupsListRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// Index of the first result. If not specified the default value will be zero.
 	Offset *int32
-	Limit  *int32
+	// Maximum number of results to be returned by the server. When not specified all the results will be returned. Note
+	// that there may not be enough results to return, and that the server may decide, for performance reasons, to return
+	// less results than requested.
+	Limit *int32
+	// Filter criteria.
 	Filter *string
-	Order  *string
+	// Order criteria.
+	Order *string
 }
 
 func (b0 ComputeInstanceGroupsListRequest_builder) Build() *ComputeInstanceGroupsListRequest {
@@ -181,9 +193,12 @@ func (b0 ComputeInstanceGroupsListRequest_builder) Build() *ComputeInstanceGroup
 }
 
 type ComputeInstanceGroupsListResponse struct {
-	state         protoimpl.MessageState  `protogen:"hybrid.v1"`
-	Size          int32                   `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"`
-	Total         int32                   `protobuf:"varint,4,opt,name=total,proto3" json:"total,omitempty"`
+	state protoimpl.MessageState `protogen:"hybrid.v1"`
+	// Actual number of items returned.
+	Size int32 `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"`
+	// Total number of items of the collection that match the search criteria.
+	Total int32 `protobuf:"varint,4,opt,name=total,proto3" json:"total,omitempty"`
+	// List of results.
 	Items         []*ComputeInstanceGroup `protobuf:"bytes,5,rep,name=items,proto3" json:"items,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -250,8 +265,11 @@ func (x *ComputeInstanceGroupsListResponse) SetItems(v []*ComputeInstanceGroup) 
 type ComputeInstanceGroupsListResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	Size  int32
+	// Actual number of items returned.
+	Size int32
+	// Total number of items of the collection that match the search criteria.
 	Total int32
+	// List of results.
 	Items []*ComputeInstanceGroup
 }
 
@@ -627,10 +645,11 @@ func (b0 ComputeInstanceGroupsDeleteResponse_builder) Build() *ComputeInstanceGr
 }
 
 type ComputeInstanceGroupsUpdateRequest struct {
-	state         protoimpl.MessageState `protogen:"hybrid.v1"`
-	Object        *ComputeInstanceGroup  `protobuf:"bytes,1,opt,name=object,proto3" json:"object,omitempty"`
-	UpdateMask    *fieldmaskpb.FieldMask `protobuf:"bytes,2,opt,name=update_mask,json=updateMask,proto3" json:"update_mask,omitempty"`
-	Lock          bool                   `protobuf:"varint,3,opt,name=lock,proto3" json:"lock,omitempty"`
+	state      protoimpl.MessageState `protogen:"hybrid.v1"`
+	Object     *ComputeInstanceGroup  `protobuf:"bytes,1,opt,name=object,proto3" json:"object,omitempty"`
+	UpdateMask *fieldmaskpb.FieldMask `protobuf:"bytes,2,opt,name=update_mask,json=updateMask,proto3" json:"update_mask,omitempty"`
+	// Lock enables optimistic locking.
+	Lock          bool `protobuf:"varint,3,opt,name=lock,proto3" json:"lock,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -720,7 +739,8 @@ type ComputeInstanceGroupsUpdateRequest_builder struct {
 
 	Object     *ComputeInstanceGroup
 	UpdateMask *fieldmaskpb.FieldMask
-	Lock       bool
+	// Lock enables optimistic locking.
+	Lock bool
 }
 
 func (b0 ComputeInstanceGroupsUpdateRequest_builder) Build() *ComputeInstanceGroupsUpdateRequest {

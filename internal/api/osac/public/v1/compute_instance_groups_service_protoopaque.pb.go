@@ -179,10 +179,35 @@ func (x *ComputeInstanceGroupsListRequest) ClearOrder() {
 type ComputeInstanceGroupsListRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// Index of the first result. If not specified the default value will be zero.
 	Offset *int32
-	Limit  *int32
+	// Maximum number of results to be returned by the server. When not specified all the results will be returned. Note
+	// that there may not be enough results to return, and that the server may decide, for performance reasons, to return
+	// less results than requested.
+	Limit *int32
+	// Filter criteria.
+	//
+	// The value of this parameter is a [CEL](https://cel.dev) expression used to select which objects to return. The
+	// built-in `this` variable refers to the object being tested and `now` refers to the current date and time. If the
+	// expression evaluates to `true` the object is included in the results. For example, to retrieve all compute
+	// instance groups with a specific class:
+	//
+	//	this.spec.compute_instance_class == "gpu-b200-4"
+	//
+	// If this isn't provided, or if the value is empty, then all the compute instance groups that the user has
+	// permission to see will be returned. Not all CEL constructs are currently supported for implementation reasons;
+	// see the filter documentation (docs/FILTER.md) for the full details.
 	Filter *string
-	Order  *string
+	// Order criteria.
+	//
+	// The syntax of this parameter is similar to the syntax of the _order by_ clause of a SQL statement, but using the
+	// names of the attributes of the compute instance group instead of the names of the columns of a table. For
+	// example, in order to sort the compute instance groups descending by name the value should be:
+	//
+	//	metadata.name desc
+	//
+	// If the parameter isn't provided, or if the value is empty, then the order of the results is undefined.
+	Order *string
 }
 
 func (b0 ComputeInstanceGroupsListRequest_builder) Build() *ComputeInstanceGroupsListRequest {
@@ -280,8 +305,14 @@ func (x *ComputeInstanceGroupsListResponse) SetItems(v []*ComputeInstanceGroup) 
 type ComputeInstanceGroupsListResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	Size  int32
+	// Actual number of items returned. Note that this may be smaller than the value requested in the `limit` parameter
+	// of the request if there are not enough items, or if the system decides that returning that number of items isn't
+	// feasible or convenient for performance reasons.
+	Size int32
+	// Total number of items of the collection that match the search criteria, regardless of the number of results
+	// requested with the `limit` parameter.
 	Total int32
+	// List of results.
 	Items []*ComputeInstanceGroup
 }
 
@@ -650,7 +681,10 @@ type ComputeInstanceGroupsUpdateRequest_builder struct {
 
 	Object     *ComputeInstanceGroup
 	UpdateMask *fieldmaskpb.FieldMask
-	Lock       bool
+	// Lock enables optimistic locking. When set to true, the server verifies that the current version of the object
+	// matches the value of the metadata.version field of the submitted object. If they differ the update will be
+	// rejected. This is useful to prevent lost updates when multiple clients are modifying the same object concurrently.
+	Lock bool
 }
 
 func (b0 ComputeInstanceGroupsUpdateRequest_builder) Build() *ComputeInstanceGroupsUpdateRequest {

@@ -51,32 +51,39 @@ func NewComputeInstanceGroupsServer() *ComputeInstanceGroupsServerBuilder {
 	return &ComputeInstanceGroupsServerBuilder{}
 }
 
+// SetLogger sets the logger to use. This is mandatory.
 func (b *ComputeInstanceGroupsServerBuilder) SetLogger(value *slog.Logger) *ComputeInstanceGroupsServerBuilder {
 	b.logger = value
 	return b
 }
 
+// SetNotifier sets the notifier to use. This is optional.
 func (b *ComputeInstanceGroupsServerBuilder) SetNotifier(value *database.Notifier) *ComputeInstanceGroupsServerBuilder {
 	b.notifier = value
 	return b
 }
 
+// SetAttributionLogic sets the attribution logic to use. This is optional.
 func (b *ComputeInstanceGroupsServerBuilder) SetAttributionLogic(value auth.AttributionLogic) *ComputeInstanceGroupsServerBuilder {
 	b.attributionLogic = value
 	return b
 }
 
+// SetTenancyLogic sets the tenancy logic to use. This is mandatory.
 func (b *ComputeInstanceGroupsServerBuilder) SetTenancyLogic(value auth.TenancyLogic) *ComputeInstanceGroupsServerBuilder {
 	b.tenancyLogic = value
 	return b
 }
 
+// SetMetricsRegisterer sets the Prometheus registerer used to register the metrics for the underlying database
+// access objects. This is optional. If not set, no metrics will be recorded.
 func (b *ComputeInstanceGroupsServerBuilder) SetMetricsRegisterer(value prometheus.Registerer) *ComputeInstanceGroupsServerBuilder {
 	b.metricsRegisterer = value
 	return b
 }
 
 func (b *ComputeInstanceGroupsServerBuilder) Build() (result *ComputeInstanceGroupsServer, err error) {
+	// Check parameters:
 	if b.logger == nil {
 		err = errors.New("logger is mandatory")
 		return
