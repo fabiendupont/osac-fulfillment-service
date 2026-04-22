@@ -76,6 +76,7 @@ func (b *PrivateComputeInstanceGroupsServerBuilder) SetMetricsRegisterer(value p
 }
 
 func (b *PrivateComputeInstanceGroupsServerBuilder) Build() (result *PrivateComputeInstanceGroupsServer, err error) {
+	// Check parameters:
 	if b.logger == nil {
 		err = errors.New("logger is mandatory")
 		return
@@ -151,7 +152,7 @@ func (s *PrivateComputeInstanceGroupsServer) Update(ctx context.Context,
 	}
 
 	existingCIG := getResponse.GetObject()
-	merged := proto.Clone(existingCIG).(*privatev1.ComputeInstanceGroup)
+	merged := cloneComputeInstanceGroup(existingCIG)
 	applyComputeInstanceGroupUpdate(merged, request.GetObject(), request.GetUpdateMask())
 
 	err = s.validateComputeInstanceGroup(ctx, merged, existingCIG)
@@ -175,6 +176,7 @@ func (s *PrivateComputeInstanceGroupsServer) Signal(ctx context.Context,
 	return
 }
 
+// validateComputeInstanceGroup validates the ComputeInstanceGroup object.
 func (s *PrivateComputeInstanceGroupsServer) validateComputeInstanceGroup(ctx context.Context,
 	newCIG *privatev1.ComputeInstanceGroup, existingCIG *privatev1.ComputeInstanceGroup) error {
 
@@ -204,6 +206,11 @@ func (s *PrivateComputeInstanceGroupsServer) validateComputeInstanceGroup(ctx co
 	}
 
 	return nil
+}
+
+// cloneComputeInstanceGroup creates a deep copy of a ComputeInstanceGroup.
+func cloneComputeInstanceGroup(cig *privatev1.ComputeInstanceGroup) *privatev1.ComputeInstanceGroup {
+	return proto.Clone(cig).(*privatev1.ComputeInstanceGroup)
 }
 
 // applyComputeInstanceGroupUpdate applies the update fields onto the base object, respecting the field mask.

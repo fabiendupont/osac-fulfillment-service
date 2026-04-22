@@ -20,15 +20,29 @@ import "google/protobuf/field_mask.proto";
 import "osac/private/v1/compute_instance_group_type.proto";
 
 message ComputeInstanceGroupsListRequest {
+  // Index of the first result. If not specified the default value will be zero.
   optional int32 offset = 1;
+
+  // Maximum number of results to be returned by the server. When not specified all the results will be returned. Note
+  // that there may not be enough results to return, and that the server may decide, for performance reasons, to return
+  // less results than requested.
   optional int32 limit = 2;
+
+  // Filter criteria.
   optional string filter = 3;
+
+  // Order criteria.
   optional string order = 4;
 }
 
 message ComputeInstanceGroupsListResponse {
+  // Actual number of items returned.
   int32 size = 3;
+
+  // Total number of items of the collection that match the search criteria.
   int32 total = 4;
+
+  // List of results.
   repeated ComputeInstanceGroup items = 5;
 }
 
@@ -57,6 +71,8 @@ message ComputeInstanceGroupsDeleteResponse {}
 message ComputeInstanceGroupsUpdateRequest {
   ComputeInstanceGroup object = 1;
   google.protobuf.FieldMask update_mask = 2;
+
+  // Lock enables optimistic locking.
   bool lock = 3;
 }
 
@@ -71,15 +87,20 @@ message ComputeInstanceGroupsSignalRequest {
 message ComputeInstanceGroupsSignalResponse {}
 
 service ComputeInstanceGroups {
+  // Retrieves the list of compute instance groups.
   rpc List(ComputeInstanceGroupsListRequest) returns (ComputeInstanceGroupsListResponse) {
     option (google.api.http) = {get: "/api/private/v1/compute_instance_groups"};
   }
+
+  // Retrieves the details of one specific compute instance group.
   rpc Get(ComputeInstanceGroupsGetRequest) returns (ComputeInstanceGroupsGetResponse) {
     option (google.api.http) = {
       get: "/api/private/v1/compute_instance_groups/{id}"
       response_body: "object"
     };
   }
+
+  // Creates a new compute instance group.
   rpc Create(ComputeInstanceGroupsCreateRequest) returns (ComputeInstanceGroupsCreateResponse) {
     option (google.api.http) = {
       post: "/api/private/v1/compute_instance_groups"
@@ -87,9 +108,13 @@ service ComputeInstanceGroups {
       response_body: "object"
     };
   }
+
+  // Deletes a compute instance group.
   rpc Delete(ComputeInstanceGroupsDeleteRequest) returns (ComputeInstanceGroupsDeleteResponse) {
     option (google.api.http) = {delete: "/api/private/v1/compute_instance_groups/{id}"};
   }
+
+  // Updates an existing compute instance group.
   rpc Update(ComputeInstanceGroupsUpdateRequest) returns (ComputeInstanceGroupsUpdateResponse) {
     option (google.api.http) = {
       patch: "/api/private/v1/compute_instance_groups/{object.id}"
@@ -97,5 +122,7 @@ service ComputeInstanceGroups {
       response_body: "object"
     };
   }
+
+  // Indicates that something changed in the object or the system that may require reconciling the object.
   rpc Signal(ComputeInstanceGroupsSignalRequest) returns (ComputeInstanceGroupsSignalResponse) {}
 }
