@@ -244,6 +244,12 @@ func (s *PrivateImagesServer) validateImage(ctx context.Context,
 				"field 'boot_method' is immutable and cannot be changed from '%s' to '%s'",
 				existingImage.GetBootMethod(), newImage.GetBootMethod())
 		}
+		// source_ref is immutable
+		if newImage.GetSourceRef() != existingImage.GetSourceRef() {
+			return grpcstatus.Errorf(grpccodes.InvalidArgument,
+				"field 'source_ref' is immutable and cannot be changed from '%s' to '%s'",
+				existingImage.GetSourceRef(), newImage.GetSourceRef())
+		}
 	}
 
 	return nil
