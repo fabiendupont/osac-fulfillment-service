@@ -208,6 +208,12 @@ func (c *runnerContext) run(cmd *cobra.Command, args []string) error {
 	if c.args.template == "" && c.args.class == "" {
 		return fmt.Errorf("either --class or --template is required")
 	}
+	if c.args.template != "" && c.args.class != "" {
+		return fmt.Errorf("--class and --template are mutually exclusive")
+	}
+	if c.args.imageRef != "" && c.args.imageSourceRef != "" {
+		return fmt.Errorf("--image-ref and --image are mutually exclusive")
+	}
 
 	// Create the gRPC connection from the configuration:
 	conn, err := cfg.Connect(ctx, cmd.Flags())

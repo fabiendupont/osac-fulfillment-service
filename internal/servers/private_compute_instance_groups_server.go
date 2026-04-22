@@ -206,6 +206,8 @@ func (s *PrivateComputeInstanceGroupsServer) validateComputeInstanceGroup(ctx co
 	return nil
 }
 
+// applyComputeInstanceGroupUpdate applies the update fields onto the base object, respecting the field mask.
+// If no mask is provided, all fields from the update are applied.
 func applyComputeInstanceGroupUpdate(base, update *privatev1.ComputeInstanceGroup, mask *fieldmaskpb.FieldMask) {
 	if mask == nil || len(mask.GetPaths()) == 0 {
 		proto.Merge(base, update)
