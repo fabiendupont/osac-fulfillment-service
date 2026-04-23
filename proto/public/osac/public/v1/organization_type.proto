@@ -24,6 +24,10 @@ message Organization {
 
   Metadata metadata = 2;
 
+  OrganizationSpec spec = 3;
+}
+
+message OrganizationSpec {
   // Human friendly description of the organization, using Markdown format.
-  string description = 3;
+  string description = 1;
 }

@@ -20,8 +20,13 @@ import "osac/private/v1/metadata_type.proto";
 message Organization {
   string id = 1;
   Metadata metadata = 2;
-  string description = 3;
+  OrganizationSpec spec = 3;
   OrganizationStatus status = 4;
+}
+
+message OrganizationSpec {
+  // Human friendly description of the organization, using Markdown format.
+  string description = 1;
 }
 
 // Represents the current operational state of an Organization.
