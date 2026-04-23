@@ -81,7 +81,9 @@ var _ = Describe("Organizations Server", func() {
 				Metadata: &privatev1.Metadata{
 					Name: "test-org",
 				},
-				Description: "Test Organization",
+				Spec: &privatev1.OrganizationSpec{
+					Description: "Test Organization",
+				},
 			},
 		}
 
@@ -161,7 +163,9 @@ var _ = Describe("Organizations Server", func() {
 				Metadata: &privatev1.Metadata{
 					Name: "test-org",
 				},
-				Description: "Original description",
+				Spec: &privatev1.OrganizationSpec{
+					Description: "Original description",
+				},
 			},
 		}
 		createResp, err := privateServer.Create(ctx, createReq)
@@ -170,12 +174,14 @@ var _ = Describe("Organizations Server", func() {
 		// Update the organization:
 		updateReq := &privatev1.OrganizationsUpdateRequest{
 			Object: &privatev1.Organization{
-				Id:          createResp.Object.Id,
-				Description: "Updated description",
+				Id: createResp.Object.Id,
+				Spec: &privatev1.OrganizationSpec{
+					Description: "Updated description",
+				},
 			},
 		}
 		updateResp, err := privateServer.Update(ctx, updateReq)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(updateResp.Object.Description).To(Equal("Updated description"))
+		Expect(updateResp.Object.Spec.Description).To(Equal("Updated description"))
 	})
 })
