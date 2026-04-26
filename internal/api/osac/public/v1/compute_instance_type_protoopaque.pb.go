@@ -124,13 +124,11 @@ const (
 	ComputeInstanceConditionType_COMPUTE_INSTANCE_CONDITION_TYPE_CONFIGURATION_APPLIED ComputeInstanceConditionType = 1
 	// Indicates that the compute instance is ready and accessible.
 	//
-	// Mirrors the KubeVirt VirtualMachine Ready condition (virt-launcher readiness probe).
-	//
-	// When `status` is `TRUE`, the VirtualMachineInstance is up and the readiness probe
+	// When `status` is `TRUE`, the compute instance is running and the readiness check
 	// has passed. The instance is reachable via the IP address in `status.ip_address`.
 	//
-	// When `status` is `FALSE`, the instance is not yet reachable (e.g. the VM is still
-	// starting, the readiness probe has not passed, or the VM is stopped/paused).
+	// When `status` is `FALSE`, the instance is not yet reachable (e.g. it is still
+	// starting, the readiness check has not passed, or the instance is stopped/paused).
 	//
 	// Possible `reason` values:
 	// - `AsExpected`: Normal operational state.
@@ -155,7 +153,7 @@ const (
 	ComputeInstanceConditionType_COMPUTE_INSTANCE_CONDITION_TYPE_RESTART_FAILED ComputeInstanceConditionType = 4
 	// Indicates that the infrastructure resources (compute, storage) have been allocated.
 	//
-	// When `status` is `TRUE`, the KubeVirt VirtualMachine has been created and
+	// When `status` is `TRUE`, the compute instance has been created and
 	// infrastructure resources are allocated.
 	//
 	// When `status` is `FALSE`, infrastructure provisioning is in progress.
@@ -164,9 +162,9 @@ const (
 	// - `InfrastructureReady`: All infrastructure resources provisioned successfully.
 	//
 	// Possible `reason` values when `status` is `FALSE`:
-	// - `TenantNotReady`: The parent tenant is not yet in a ready state.
-	// - `WaitingForVM`: VirtualMachine has not been created yet.
-	// - `ProvisioningStorage`: DataVolumes are being created for boot and additional disks.
+	// - `TenantNotReady`: The hosting environment is not yet in a ready state.
+	// - `WaitingForVM`: The compute instance has not been created yet.
+	// - `ProvisioningStorage`: Storage volumes are being created for boot and additional disks.
 	ComputeInstanceConditionType_COMPUTE_INSTANCE_CONDITION_TYPE_PROVISIONED ComputeInstanceConditionType = 5
 	// Indicates that the compute instance requires a restart for configuration changes
 	// to take effect.
