@@ -184,7 +184,7 @@ message ComputeInstanceStatus {
   //            "last_transition_time": "2025-03-12 20:14:22+00:00"
   //          },
   //          {
-  //            "type": "COMPUTE_INSTANCE_CONDITION_TYPE_AVAILABLE",
+  //            "type": "COMPUTE_INSTANCE_CONDITION_TYPE_READY",
   //            "status": "CONDITION_STATUS_TRUE",
   //            "last_transition_time": "2025-03-12 20:15:59+00:00"
   //          }
@@ -193,7 +193,7 @@ message ComputeInstanceStatus {
   //    }
   //
   // In this example the `PROVISIONED` condition is true (infrastructure is allocated), `CONFIGURATION_APPLIED` is true
-  // (the desired configuration has been applied by the provisioning provider), and `AVAILABLE` is true (the compute
+  // (the desired configuration has been applied by the provisioning provider), and `READY` is true (the compute
   // instance is reachable via the IP address in `status.ip_address`).
   //
   // The `state` field reflects the VM power state as reported by the hypervisor. Possible states include
@@ -294,10 +294,17 @@ enum ComputeInstanceConditionType {
   // provisioning or after a spec update).
   COMPUTE_INSTANCE_CONDITION_TYPE_CONFIGURATION_APPLIED = 1;
 
-  // Indicates that the compute instance is available.
+  // Indicates that the compute instance is ready and accessible.
   //
-  // Currently there are no `reason` values defined.
-  COMPUTE_INSTANCE_CONDITION_TYPE_AVAILABLE = 2;
+  // When `status` is `TRUE`, the compute instance is running and the readiness check
+  // has passed. The instance is reachable via the IP address in `status.ip_address`.
+  //
+  // When `status` is `FALSE`, the instance is not yet reachable (e.g. it is still
+  // starting, the readiness check has not passed, or the instance is stopped/paused).
+  //
+  // Possible `reason` values:
+  // - `AsExpected`: Normal operational state.
+  COMPUTE_INSTANCE_CONDITION_TYPE_READY = 2;
 
   // Indicates that a restart is in progress.
   //
@@ -321,10 +328,18 @@ enum ComputeInstanceConditionType {
 
   // Indicates that the infrastructure resources (compute, storage) have been allocated.
   //
-  // When `status` is `TRUE`, the KubeVirt VirtualMachine has been created and
+  // When `status` is `TRUE`, the compute instance has been created and
   // infrastructure resources are allocated.
   //
   // When `status` is `FALSE`, infrastructure provisioning is in progress.
+  //
+  // Possible `reason` values when `status` is `TRUE`:
+  // - `InfrastructureReady`: All infrastructure resources provisioned successfully.
+  //
+  // Possible `reason` values when `status` is `FALSE`:
+  // - `TenantNotReady`: The hosting environment is not yet in a ready state.
+  // - `WaitingForVM`: The compute instance has not been created yet.
+  // - `ProvisioningStorage`: Storage volumes are being created for boot and additional disks.
   COMPUTE_INSTANCE_CONDITION_TYPE_PROVISIONED = 5;
 
   // Indicates that the compute instance requires a restart for configuration changes
