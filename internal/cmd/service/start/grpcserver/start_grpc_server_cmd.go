@@ -722,6 +722,62 @@ func (c *runnerContext) run(cmd *cobra.Command, argv []string) error {
 	}
 	privatev1.RegisterPublicIPsServer(grpcServer, privatePublicIPsServer)
 
+	// Create the public organizations server:
+	c.logger.InfoContext(ctx, "Creating public organizations server")
+	publicOrganizationsServer, err := servers.NewOrganizationsServer().
+		SetLogger(c.logger).
+		SetNotifier(notifier).
+		SetAttributionLogic(publicAttributionLogic).
+		SetTenancyLogic(tenancyLogic).
+		SetMetricsRegisterer(metricsRegisterer).
+		Build()
+	if err != nil {
+		return fmt.Errorf("failed to create public organizations server: %w", err)
+	}
+	publicv1.RegisterOrganizationsServer(grpcServer, publicOrganizationsServer)
+
+	// Create the private organizations server:
+	c.logger.InfoContext(ctx, "Creating private organizations server")
+	privateOrganizationsServer, err := servers.NewPrivateOrganizationsServer().
+		SetLogger(c.logger).
+		SetNotifier(notifier).
+		SetAttributionLogic(privateAttributionLogic).
+		SetTenancyLogic(tenancyLogic).
+		SetMetricsRegisterer(metricsRegisterer).
+		Build()
+	if err != nil {
+		return fmt.Errorf("failed to create private organizations server: %w", err)
+	}
+	privatev1.RegisterOrganizationsServer(grpcServer, privateOrganizationsServer)
+
+	// Create the public users server:
+	c.logger.InfoContext(ctx, "Creating public users server")
+	publicUsersServer, err := servers.NewUsersServer().
+		SetLogger(c.logger).
+		SetNotifier(notifier).
+		SetAttributionLogic(publicAttributionLogic).
+		SetTenancyLogic(tenancyLogic).
+		SetMetricsRegisterer(metricsRegisterer).
+		Build()
+	if err != nil {
+		return fmt.Errorf("failed to create public users server: %w", err)
+	}
+	publicv1.RegisterUsersServer(grpcServer, publicUsersServer)
+
+	// Create the private users server:
+	c.logger.InfoContext(ctx, "Creating private users server")
+	privateUsersServer, err := servers.NewPrivateUsersServer().
+		SetLogger(c.logger).
+		SetNotifier(notifier).
+		SetAttributionLogic(privateAttributionLogic).
+		SetTenancyLogic(tenancyLogic).
+		SetMetricsRegisterer(metricsRegisterer).
+		Build()
+	if err != nil {
+		return fmt.Errorf("failed to create private users server: %w", err)
+	}
+	privatev1.RegisterUsersServer(grpcServer, privateUsersServer)
+
 	// Create the console manager and server:
 	c.logger.InfoContext(ctx, "Creating console server")
 	hubConfigProvider := console.HubConfigProviderFromKubeconfigs(
