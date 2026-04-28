@@ -188,6 +188,20 @@ spec:
               "/osac.public.v1.PublicIPs/Delete",
               "/osac.public.v1.PublicIPs/Get",
               "/osac.public.v1.PublicIPs/List",
+              "/osac.public.v1.ComputeInstanceClasses/Get",
+              "/osac.public.v1.ComputeInstanceClasses/List",
+              "/osac.public.v1.ComputeInstanceGroups/Create",
+              "/osac.public.v1.ComputeInstanceGroups/Delete",
+              "/osac.public.v1.ComputeInstanceGroups/Get",
+              "/osac.public.v1.ComputeInstanceGroups/List",
+              "/osac.public.v1.ComputeInstanceGroups/Update",
+              "/osac.public.v1.Images/Get",
+              "/osac.public.v1.Images/List",
+              "/osac.public.v1.SSHKeys/Create",
+              "/osac.public.v1.SSHKeys/Delete",
+              "/osac.public.v1.SSHKeys/Get",
+              "/osac.public.v1.SSHKeys/List",
+              "/osac.public.v1.SSHKeys/Update",
             }
           }
 
