@@ -93,6 +93,7 @@ func (b *ComputeInstanceGroupsServerBuilder) Build() (result *ComputeInstanceGro
 		return
 	}
 
+	// Create the mappers:
 	inMapper, err := NewGenericMapper[*publicv1.ComputeInstanceGroup, *privatev1.ComputeInstanceGroup]().
 		SetLogger(b.logger).
 		SetStrict(true).
@@ -108,6 +109,7 @@ func (b *ComputeInstanceGroupsServerBuilder) Build() (result *ComputeInstanceGro
 		return
 	}
 
+	// Create the private server to delegate to:
 	delegate, err := NewPrivateComputeInstanceGroupsServer().
 		SetLogger(b.logger).
 		SetNotifier(b.notifier).
@@ -119,6 +121,7 @@ func (b *ComputeInstanceGroupsServerBuilder) Build() (result *ComputeInstanceGro
 		return
 	}
 
+	// Create and populate the object:
 	result = &ComputeInstanceGroupsServer{
 		logger:    b.logger,
 		delegate:  delegate,
@@ -130,28 +133,37 @@ func (b *ComputeInstanceGroupsServerBuilder) Build() (result *ComputeInstanceGro
 
 func (s *ComputeInstanceGroupsServer) List(ctx context.Context,
 	request *publicv1.ComputeInstanceGroupsListRequest) (response *publicv1.ComputeInstanceGroupsListResponse, err error) {
+	// Create private request with same parameters:
 	privateRequest := &privatev1.ComputeInstanceGroupsListRequest{}
 	privateRequest.SetOffset(request.GetOffset())
 	privateRequest.SetLimit(request.GetLimit())
 	privateRequest.SetFilter(request.GetFilter())
+	privateRequest.SetOrder(request.GetOrder())
 
+	// Delegate to private server:
 	privateResponse, err := s.delegate.List(ctx, privateRequest)
 	if err != nil {
 		return nil, err
 	}
 
+	// Map private response to public format:
 	privateItems := privateResponse.GetItems()
 	publicItems := make([]*publicv1.ComputeInstanceGroup, len(privateItems))
 	for i, privateItem := range privateItems {
 		publicItem := &publicv1.ComputeInstanceGroup{}
 		err = s.outMapper.Copy(ctx, privateItem, publicItem)
 		if err != nil {
-			s.logger.ErrorContext(ctx, "Failed to map private compute instance group to public", slog.Any("error", err))
+			s.logger.ErrorContext(
+				ctx,
+				"Failed to map private compute instance group to public",
+				slog.Any("error", err),
+			)
 			return nil, grpcstatus.Errorf(grpccodes.Internal, "failed to process compute instance groups")
 		}
 		publicItems[i] = publicItem
 	}
 
+	// Create the public response:
 	response = &publicv1.ComputeInstanceGroupsListResponse{}
 	response.SetSize(privateResponse.GetSize())
 	response.SetTotal(privateResponse.GetTotal())
@@ -161,120 +173,160 @@ func (s *ComputeInstanceGroupsServer) List(ctx context.Context,
 
 func (s *ComputeInstanceGroupsServer) Get(ctx context.Context,
 	request *publicv1.ComputeInstanceGroupsGetRequest) (response *publicv1.ComputeInstanceGroupsGetResponse, err error) {
+	// Create private request:
 	privateRequest := &privatev1.ComputeInstanceGroupsGetRequest{}
 	privateRequest.SetId(request.GetId())
 
+	// Delegate to private server:
 	privateResponse, err := s.delegate.Get(ctx, privateRequest)
 	if err != nil {
 		return nil, err
 	}
 
-	publicCIG := &publicv1.ComputeInstanceGroup{}
-	err = s.outMapper.Copy(ctx, privateResponse.GetObject(), publicCIG)
+	// Map private response to public format:
+	publicComputeInstanceGroup := &publicv1.ComputeInstanceGroup{}
+	err = s.outMapper.Copy(ctx, privateResponse.GetObject(), publicComputeInstanceGroup)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to map private compute instance group to public", slog.Any("error", err))
+		s.logger.ErrorContext(
+			ctx,
+			"Failed to map private compute instance group to public",
+			slog.Any("error", err),
+		)
 		return nil, grpcstatus.Errorf(grpccodes.Internal, "failed to process compute instance group")
 	}
 
+	// Create the public response:
 	response = &publicv1.ComputeInstanceGroupsGetResponse{}
-	response.SetObject(publicCIG)
+	response.SetObject(publicComputeInstanceGroup)
 	return
 }
 
 func (s *ComputeInstanceGroupsServer) Create(ctx context.Context,
 	request *publicv1.ComputeInstanceGroupsCreateRequest) (response *publicv1.ComputeInstanceGroupsCreateResponse, err error) {
-	publicCIG := request.GetObject()
-	if publicCIG == nil {
+	// Map the public compute instance group to private format:
+	publicComputeInstanceGroup := request.GetObject()
+	if publicComputeInstanceGroup == nil {
 		err = grpcstatus.Errorf(grpccodes.InvalidArgument, "object is mandatory")
 		return
 	}
-	privateCIG := &privatev1.ComputeInstanceGroup{}
-	err = s.inMapper.Copy(ctx, publicCIG, privateCIG)
+	privateComputeInstanceGroup := &privatev1.ComputeInstanceGroup{}
+	err = s.inMapper.Copy(ctx, publicComputeInstanceGroup, privateComputeInstanceGroup)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to map public compute instance group to private", slog.Any("error", err))
+		s.logger.ErrorContext(
+			ctx,
+			"Failed to map public compute instance group to private",
+			slog.Any("error", err),
+		)
 		err = grpcstatus.Errorf(grpccodes.Internal, "failed to process compute instance group")
 		return
 	}
 
+	// Delegate to the private server:
 	privateRequest := &privatev1.ComputeInstanceGroupsCreateRequest{}
-	privateRequest.SetObject(privateCIG)
+	privateRequest.SetObject(privateComputeInstanceGroup)
 	privateResponse, err := s.delegate.Create(ctx, privateRequest)
 	if err != nil {
 		return nil, err
 	}
 
-	createdPublicCIG := &publicv1.ComputeInstanceGroup{}
-	err = s.outMapper.Copy(ctx, privateResponse.GetObject(), createdPublicCIG)
+	// Map the private response back to public format:
+	createdPrivateComputeInstanceGroup := privateResponse.GetObject()
+	createdPublicComputeInstanceGroup := &publicv1.ComputeInstanceGroup{}
+	err = s.outMapper.Copy(ctx, createdPrivateComputeInstanceGroup, createdPublicComputeInstanceGroup)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to map private compute instance group to public", slog.Any("error", err))
+		s.logger.ErrorContext(
+			ctx,
+			"Failed to map private compute instance group to public",
+			slog.Any("error", err),
+		)
 		err = grpcstatus.Errorf(grpccodes.Internal, "failed to process compute instance group")
 		return
 	}
 
+	// Create the public response:
 	response = &publicv1.ComputeInstanceGroupsCreateResponse{}
-	response.SetObject(createdPublicCIG)
+	response.SetObject(createdPublicComputeInstanceGroup)
 	return
 }
 
 func (s *ComputeInstanceGroupsServer) Update(ctx context.Context,
 	request *publicv1.ComputeInstanceGroupsUpdateRequest) (response *publicv1.ComputeInstanceGroupsUpdateResponse, err error) {
-	publicCIG := request.GetObject()
-	if publicCIG == nil {
+	// Validate the request:
+	publicComputeInstanceGroup := request.GetObject()
+	if publicComputeInstanceGroup == nil {
 		err = grpcstatus.Errorf(grpccodes.InvalidArgument, "object is mandatory")
 		return
 	}
-	id := publicCIG.GetId()
+	id := publicComputeInstanceGroup.GetId()
 	if id == "" {
 		err = grpcstatus.Errorf(grpccodes.InvalidArgument, "object identifier is mandatory")
 		return
 	}
 
+	// Get the existing object from the private server:
 	getRequest := &privatev1.ComputeInstanceGroupsGetRequest{}
 	getRequest.SetId(id)
 	getResponse, err := s.delegate.Get(ctx, getRequest)
 	if err != nil {
 		return nil, err
 	}
-	existingPrivateCIG := getResponse.GetObject()
+	existingPrivateComputeInstanceGroup := getResponse.GetObject()
 
-	err = s.inMapper.Copy(ctx, publicCIG, existingPrivateCIG)
+	// Map the public changes to the existing private object (preserving private data):
+	err = s.inMapper.Copy(ctx, publicComputeInstanceGroup, existingPrivateComputeInstanceGroup)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to map public compute instance group to private", slog.Any("error", err))
+		s.logger.ErrorContext(
+			ctx,
+			"Failed to map public compute instance group to private",
+			slog.Any("error", err),
+		)
 		err = grpcstatus.Errorf(grpccodes.Internal, "failed to process compute instance group")
 		return
 	}
 
+	// Delegate to the private server with the merged object:
 	privateRequest := &privatev1.ComputeInstanceGroupsUpdateRequest{}
-	privateRequest.SetObject(existingPrivateCIG)
+	privateRequest.SetObject(existingPrivateComputeInstanceGroup)
+	privateRequest.SetUpdateMask(request.GetUpdateMask())
 	privateRequest.SetLock(request.GetLock())
 	privateResponse, err := s.delegate.Update(ctx, privateRequest)
 	if err != nil {
 		return nil, err
 	}
 
-	updatedPublicCIG := &publicv1.ComputeInstanceGroup{}
-	err = s.outMapper.Copy(ctx, privateResponse.GetObject(), updatedPublicCIG)
+	// Map the private response back to public format:
+	updatedPrivateComputeInstanceGroup := privateResponse.GetObject()
+	updatedPublicComputeInstanceGroup := &publicv1.ComputeInstanceGroup{}
+	err = s.outMapper.Copy(ctx, updatedPrivateComputeInstanceGroup, updatedPublicComputeInstanceGroup)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to map private compute instance group to public", slog.Any("error", err))
+		s.logger.ErrorContext(
+			ctx,
+			"Failed to map private compute instance group to public",
+			slog.Any("error", err),
+		)
 		err = grpcstatus.Errorf(grpccodes.Internal, "failed to process compute instance group")
 		return
 	}
 
+	// Create the public response:
 	response = &publicv1.ComputeInstanceGroupsUpdateResponse{}
-	response.SetObject(updatedPublicCIG)
+	response.SetObject(updatedPublicComputeInstanceGroup)
 	return
 }
 
 func (s *ComputeInstanceGroupsServer) Delete(ctx context.Context,
 	request *publicv1.ComputeInstanceGroupsDeleteRequest) (response *publicv1.ComputeInstanceGroupsDeleteResponse, err error) {
+	// Create private request:
 	privateRequest := &privatev1.ComputeInstanceGroupsDeleteRequest{}
 	privateRequest.SetId(request.GetId())
 
+	// Delegate to private server:
 	_, err = s.delegate.Delete(ctx, privateRequest)
 	if err != nil {
 		return nil, err
 	}
 
+	// Create the public response:
 	response = &publicv1.ComputeInstanceGroupsDeleteResponse{}
 	return
 }

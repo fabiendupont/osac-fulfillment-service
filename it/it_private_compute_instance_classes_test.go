@@ -98,6 +98,7 @@ var _ = Describe("Private compute instance classes", func() {
 			}.Build(),
 		}.Build())
 		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("backend"))
 	})
 
 	It("Rejects backend change on update", func() {
@@ -118,6 +119,7 @@ var _ = Describe("Private compute instance classes", func() {
 			}.Build(),
 		}.Build())
 		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("immutable"))
 	})
 
 	It("Lists and gets classes", func() {

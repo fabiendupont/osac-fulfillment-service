@@ -39,11 +39,16 @@ const (
 type ComputeInstanceGroupState int32
 
 const (
+	// State is unknown or has not been determined yet.
 	ComputeInstanceGroupState_COMPUTE_INSTANCE_GROUP_STATE_UNSPECIFIED ComputeInstanceGroupState = 0
-	ComputeInstanceGroupState_COMPUTE_INSTANCE_GROUP_STATE_PENDING     ComputeInstanceGroupState = 1
-	ComputeInstanceGroupState_COMPUTE_INSTANCE_GROUP_STATE_READY       ComputeInstanceGroupState = 2
-	ComputeInstanceGroupState_COMPUTE_INSTANCE_GROUP_STATE_SCALING     ComputeInstanceGroupState = 3
-	ComputeInstanceGroupState_COMPUTE_INSTANCE_GROUP_STATE_FAILED      ComputeInstanceGroupState = 4
+	// The compute instance group is being initialized and is not yet ready.
+	ComputeInstanceGroupState_COMPUTE_INSTANCE_GROUP_STATE_PENDING ComputeInstanceGroupState = 1
+	// All desired replicas are running and the group is fully operational.
+	ComputeInstanceGroupState_COMPUTE_INSTANCE_GROUP_STATE_READY ComputeInstanceGroupState = 2
+	// The group is scaling up or down and has not yet reached the desired replica count.
+	ComputeInstanceGroupState_COMPUTE_INSTANCE_GROUP_STATE_SCALING ComputeInstanceGroupState = 3
+	// The compute instance group has encountered an error and cannot reach the desired state.
+	ComputeInstanceGroupState_COMPUTE_INSTANCE_GROUP_STATE_FAILED ComputeInstanceGroupState = 4
 )
 
 // Enum value maps for ComputeInstanceGroupState.

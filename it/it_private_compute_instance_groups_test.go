@@ -18,6 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2/dsl/core"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	privatev1 "github.com/osac-project/fulfillment-service/internal/api/osac/private/v1"
 )
@@ -72,6 +73,7 @@ var _ = Describe("Private compute instance groups", func() {
 			}.Build(),
 		}.Build())
 		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("compute_instance_class"))
 	})
 
 	It("Rejects negative replicas", func() {
@@ -84,6 +86,7 @@ var _ = Describe("Private compute instance groups", func() {
 			}.Build(),
 		}.Build())
 		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("replicas"))
 	})
 
 	It("Updates replicas", func() {
@@ -111,6 +114,34 @@ var _ = Describe("Private compute instance groups", func() {
 		Expect(updateResp.GetObject().GetSpec().GetReplicas()).To(Equal(int32(8)))
 	})
 
+	It("Updates replicas with field mask", func() {
+		createResp, err := client.Create(ctx, privatev1.ComputeInstanceGroupsCreateRequest_builder{
+			Object: privatev1.ComputeInstanceGroup_builder{
+				Spec: privatev1.ComputeInstanceGroupSpec_builder{
+					ComputeInstanceClass: "mask-test-class",
+					Replicas:             3,
+					Region:               stringPtr("us-east"),
+				}.Build(),
+			}.Build(),
+		}.Build())
+		Expect(err).ToNot(HaveOccurred())
+		id := createResp.GetObject().GetId()
+
+		updateResp, err := client.Update(ctx, privatev1.ComputeInstanceGroupsUpdateRequest_builder{
+			Object: privatev1.ComputeInstanceGroup_builder{
+				Id: id,
+				Spec: privatev1.ComputeInstanceGroupSpec_builder{
+					ComputeInstanceClass: "mask-test-class",
+					Replicas:             6,
+				}.Build(),
+			}.Build(),
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"spec.replicas"}},
+		}.Build())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(updateResp.GetObject().GetSpec().GetReplicas()).To(Equal(int32(6)))
+		Expect(updateResp.GetObject().GetSpec().GetRegion()).To(Equal("us-east"))
+	})
+
 	It("Rejects class change on update", func() {
 		createResp, err := client.Create(ctx, privatev1.ComputeInstanceGroupsCreateRequest_builder{
 			Object: privatev1.ComputeInstanceGroup_builder{
@@ -133,6 +164,7 @@ var _ = Describe("Private compute instance groups", func() {
 			}.Build(),
 		}.Build())
 		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("immutable"))
 	})
 
 	It("Lists, gets, and deletes groups", func() {

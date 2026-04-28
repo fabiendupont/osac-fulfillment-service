@@ -35,14 +35,20 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Lifecycle states for ComputeInstanceGroup resources.
 type ComputeInstanceGroupState int32
 
 const (
+	// State is unknown or has not been determined yet.
 	ComputeInstanceGroupState_COMPUTE_INSTANCE_GROUP_STATE_UNSPECIFIED ComputeInstanceGroupState = 0
-	ComputeInstanceGroupState_COMPUTE_INSTANCE_GROUP_STATE_PENDING     ComputeInstanceGroupState = 1
-	ComputeInstanceGroupState_COMPUTE_INSTANCE_GROUP_STATE_READY       ComputeInstanceGroupState = 2
-	ComputeInstanceGroupState_COMPUTE_INSTANCE_GROUP_STATE_SCALING     ComputeInstanceGroupState = 3
-	ComputeInstanceGroupState_COMPUTE_INSTANCE_GROUP_STATE_FAILED      ComputeInstanceGroupState = 4
+	// The compute instance group is being initialized and is not yet ready.
+	ComputeInstanceGroupState_COMPUTE_INSTANCE_GROUP_STATE_PENDING ComputeInstanceGroupState = 1
+	// All desired replicas are running and the group is fully operational.
+	ComputeInstanceGroupState_COMPUTE_INSTANCE_GROUP_STATE_READY ComputeInstanceGroupState = 2
+	// The group is scaling up or down and has not yet reached the desired replica count.
+	ComputeInstanceGroupState_COMPUTE_INSTANCE_GROUP_STATE_SCALING ComputeInstanceGroupState = 3
+	// The compute instance group has encountered an error and cannot reach the desired state.
+	ComputeInstanceGroupState_COMPUTE_INSTANCE_GROUP_STATE_FAILED ComputeInstanceGroupState = 4
 )
 
 // Enum value maps for ComputeInstanceGroupState.
@@ -89,10 +95,14 @@ func (x ComputeInstanceGroupState) Number() protoreflect.EnumNumber {
 // Scaling up increases replicas and creates new ComputeInstances. Scaling down removes instances
 // (last created first).
 type ComputeInstanceGroup struct {
-	state         protoimpl.MessageState      `protogen:"hybrid.v1"`
-	Id            string                      `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Metadata      *Metadata                   `protobuf:"bytes,2,opt,name=metadata,proto3" json:"metadata,omitempty"`
-	Spec          *ComputeInstanceGroupSpec   `protobuf:"bytes,3,opt,name=spec,proto3" json:"spec,omitempty"`
+	state protoimpl.MessageState `protogen:"hybrid.v1"`
+	// Unique identifier of the compute instance group.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Metadata of the compute instance group.
+	Metadata *Metadata `protobuf:"bytes,2,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	// Desired state of the compute instance group.
+	Spec *ComputeInstanceGroupSpec `protobuf:"bytes,3,opt,name=spec,proto3" json:"spec,omitempty"`
+	// Current state of the compute instance group.
 	Status        *ComputeInstanceGroupStatus `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -203,10 +213,14 @@ func (x *ComputeInstanceGroup) ClearStatus() {
 type ComputeInstanceGroup_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	Id       string
+	// Unique identifier of the compute instance group.
+	Id string
+	// Metadata of the compute instance group.
 	Metadata *Metadata
-	Spec     *ComputeInstanceGroupSpec
-	Status   *ComputeInstanceGroupStatus
+	// Desired state of the compute instance group.
+	Spec *ComputeInstanceGroupSpec
+	// Current state of the compute instance group.
+	Status *ComputeInstanceGroupStatus
 }
 
 func (b0 ComputeInstanceGroup_builder) Build() *ComputeInstanceGroup {
