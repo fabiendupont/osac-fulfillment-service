@@ -41,6 +41,7 @@ import (
 	"github.com/osac-project/fulfillment-service/internal/controllers"
 	"github.com/osac-project/fulfillment-service/internal/controllers/cluster"
 	"github.com/osac-project/fulfillment-service/internal/controllers/computeinstance"
+	"github.com/osac-project/fulfillment-service/internal/controllers/organization"
 	"github.com/osac-project/fulfillment-service/internal/controllers/publicip"
 	"github.com/osac-project/fulfillment-service/internal/controllers/publicippool"
 	"github.com/osac-project/fulfillment-service/internal/controllers/securitygroup"
@@ -256,9 +257,6 @@ func (r *runnerContext) run(cmd *cobra.Command, argv []string) error {
 	if err != nil {
 		return err
 	}
-
-	// TODO: Create organization reconciler using idpManager
-	_ = idpManager
 
 	// Create the cluster reconciler:
 	r.logger.InfoContext(ctx, "Creating cluster reconciler")
@@ -518,6 +516,45 @@ func (r *runnerContext) run(cmd *cobra.Command, argv []string) error {
 			)
 		}
 	}()
+
+	// Create the organization reconciler if IDP is configured:
+	if idpManager != nil {
+		r.logger.InfoContext(ctx, "Creating organization reconciler")
+		organizationReconcilerFunction, err := organization.NewFunction().
+			SetLogger(r.logger).
+			SetConnection(r.client).
+			SetIdpManager(idpManager).
+			Build()
+		if err != nil {
+			return fmt.Errorf("failed to create organization reconciler function: %w", err)
+		}
+		organizationReconciler, err := controllers.NewReconciler[*privatev1.Organization]().
+			SetLogger(r.logger).
+			SetName("organization").
+			SetClient(r.client).
+			SetFunction(organizationReconcilerFunction.Run).
+			SetEventFilter("has(event.organization)").
+			SetHealthReporter(healthAggregator).
+			Build()
+		if err != nil {
+			return fmt.Errorf("failed to create organization reconciler: %w", err)
+		}
+
+		// Start the organization reconciler:
+		r.logger.InfoContext(ctx, "Starting organization reconciler")
+		go func() {
+			err := organizationReconciler.Start(ctx)
+			if err == nil || errors.Is(err, context.Canceled) {
+				r.logger.InfoContext(ctx, "Organization reconciler finished")
+			} else {
+				r.logger.InfoContext(
+					ctx,
+					"Organization reconciler failed",
+					slog.Any("error", err),
+				)
+			}
+		}()
+	}
 
 	// Create the metrics listener:
 	r.logger.InfoContext(ctx, "Creating metrics listener")
