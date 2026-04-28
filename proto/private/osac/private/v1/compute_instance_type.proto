@@ -38,6 +38,23 @@ message ComputeInstanceImage {
   string source_ref = 2;
 }
 
+// Contains the resolved image data, denormalized from the Image resource at creation time.
+// This ensures the compute instance retains a point-in-time snapshot of the image configuration
+// even if the Image resource is later updated or deleted.
+message ResolvedImage {
+  // Image source type (e.g. "registry").
+  string source_type = 1;
+
+  // Image source reference (e.g. OCI image URL).
+  string source_ref = 2;
+
+  // Boot method used by the image (e.g. "ignition", "cloud-init", "kickstart").
+  string boot_method = 3;
+
+  // Checksum for image integrity verification (e.g. "sha256:abc123...").
+  optional string checksum = 4;
+}
+
 // Contains the disk configuration for a compute instance.
 message ComputeInstanceDisk {
   // Disk size in GiB.
@@ -94,6 +111,14 @@ message ComputeInstanceSpec {
 
   // References to SSHKey resources by name. Replaces inline ssh_key.
   repeated string ssh_key_refs = 17;
+
+  // Resolved image data, denormalized from the Image resource at creation time.
+  // Populated by the server when image_ref is set. Read-only for clients.
+  optional ResolvedImage resolved_image = 18;
+
+  // Resolved SSH public key strings, denormalized from the SSHKey resources at creation time.
+  // Populated by the server when ssh_key_refs is set. Read-only for clients.
+  repeated string resolved_ssh_keys = 19;
 }
 
 message ComputeInstanceStatus {

@@ -79,6 +79,7 @@ var _ = Describe("Private images", func() {
 			}.Build(),
 		}.Build())
 		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("boot_method"))
 	})
 
 	It("Rejects creation without source_type", func() {
@@ -90,6 +91,7 @@ var _ = Describe("Private images", func() {
 			}.Build(),
 		}.Build())
 		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("source_type"))
 	})
 
 	It("Lists, gets, and deletes images", func() {

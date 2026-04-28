@@ -214,6 +214,9 @@ func (c *runnerContext) run(cmd *cobra.Command, args []string) error {
 	if c.args.imageRef != "" && c.args.imageSourceRef != "" {
 		return fmt.Errorf("--image-ref and --image are mutually exclusive")
 	}
+	if len(c.args.sshKeyRefs) > 0 && c.args.sshKey != "" {
+		return fmt.Errorf("--ssh-key-ref and --ssh-key are mutually exclusive")
+	}
 
 	// Create the gRPC connection from the configuration:
 	conn, err := cfg.Connect(ctx, cmd.Flags())

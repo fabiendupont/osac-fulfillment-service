@@ -214,6 +214,12 @@ func (s *PrivateComputeInstancesServer) Create(ctx context.Context,
 		return
 	}
 
+	// Resolve image and SSH key references into denormalized data:
+	err = s.resolveReferences(ctx, request.GetObject())
+	if err != nil {
+		return
+	}
+
 	err = s.generic.Create(ctx, request, &response)
 	return
 }
@@ -231,6 +237,12 @@ func (s *PrivateComputeInstancesServer) Update(ctx context.Context,
 	}
 	if hasMaskPrefix(mask, "spec.template", "spec.template_parameters", "spec.compute_instance_class") {
 		err = s.validateTemplate(ctx, request.GetObject())
+		if err != nil {
+			return
+		}
+	}
+	if hasMaskPrefix(mask, "spec.image_ref", "spec.ssh_key_refs") {
+		err = s.resolveReferences(ctx, request.GetObject())
 		if err != nil {
 			return
 		}
@@ -344,6 +356,58 @@ func (s *PrivateComputeInstancesServer) validateSSHKeyRefs(ctx context.Context, 
 				"SSH key '%s' does not exist", keyRef)
 		}
 	}
+	return nil
+}
+
+func (s *PrivateComputeInstancesServer) resolveReferences(ctx context.Context, vm *privatev1.ComputeInstance) error {
+	if vm == nil || vm.GetSpec() == nil {
+		return nil
+	}
+	spec := vm.GetSpec()
+
+	if imageRef := spec.GetImageRef(); imageRef != "" {
+		getResponse, err := s.imagesDao.Get().
+			SetId(imageRef).
+			Do(ctx)
+		if err != nil {
+			s.logger.ErrorContext(ctx, "Image retrieval failed during resolution",
+				slog.String("image_ref", imageRef), slog.Any("error", err))
+			return grpcstatus.Errorf(grpccodes.Internal,
+				"failed to resolve image '%s'", imageRef)
+		}
+		image := getResponse.GetObject()
+		if image != nil {
+			resolved := &privatev1.ResolvedImage{}
+			resolved.SetSourceType(image.GetSourceType())
+			resolved.SetSourceRef(image.GetSourceRef())
+			resolved.SetBootMethod(image.GetBootMethod())
+			if image.HasChecksum() {
+				resolved.SetChecksum(image.GetChecksum())
+			}
+			spec.SetResolvedImage(resolved)
+		}
+	}
+
+	if refs := spec.GetSshKeyRefs(); len(refs) > 0 {
+		resolvedKeys := make([]string, 0, len(refs))
+		for _, keyRef := range refs {
+			getResponse, err := s.sshKeysDao.Get().
+				SetId(keyRef).
+				Do(ctx)
+			if err != nil {
+				s.logger.ErrorContext(ctx, "SSHKey retrieval failed during resolution",
+					slog.String("ssh_key_ref", keyRef), slog.Any("error", err))
+				return grpcstatus.Errorf(grpccodes.Internal,
+					"failed to resolve SSH key '%s'", keyRef)
+			}
+			key := getResponse.GetObject()
+			if key != nil {
+				resolvedKeys = append(resolvedKeys, key.GetPublicKey())
+			}
+		}
+		spec.SetResolvedSshKeys(resolvedKeys)
+	}
+
 	return nil
 }
 
