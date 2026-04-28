@@ -79,30 +79,10 @@ spec:
           value: admin
         - name: KC_BOOTSTRAP_ADMIN_PASSWORD
           value: admin
-        - name: KC_HOSTNAME_STRICT
-          value: "true"
-        - name: KC_HOSTNAME_STRICT_HTTPS
-          value: "true"
-        - name: KC_HTTP_ENABLED
-          value: "false"
-        - name: KC_HTTPS_ENABLED
-          value: "true"
-        - name: KC_HTTPS_PORT
-          value: "8000"
-        - name: KC_HTTPS_CERTIFICATE_FILE
-          value: "/opt/keycloak/tls/tls.crt"
-        - name: KC_HTTPS_CERTIFICATE_KEY_FILE
-          value: "/opt/keycloak/tls/tls.key"
-        - name: KC_HOSTNAME
-          value: "{{ include "keycloak.hostname" . }}"
-        - name: KC_HOSTNAME_PORT
-          value: "8000"
-        - name: KC_DB
-          value: "postgres"
         command:
         - /bin/bash
         - -c
-        - {{ .Files.Get "files/start.sh" | quote }}
+        - {{ include "keycloak.start" . | quote }}
         ports:
         - name: https
           containerPort: 8000

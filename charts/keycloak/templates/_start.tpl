@@ -1,3 +1,21 @@
+{{/*
+Copyright (c) 2025 Red Hat Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+the License. You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+specific language governing permissions and limitations under the License.
+*/}}
+
+{{/*
+Generates the shell script that writes the Keycloak configuration file and starts the server. This is used instead of
+environment variables so that tools like `kc.sh` work correctly when executed via `kubectl exec`.
+*/}}
+{{- define "keycloak.start" -}}
 #!/bin/bash
 
 # Directory containing the database connection parameters:
@@ -52,23 +70,39 @@ for param_path in "${param_dir}"/*; do
   esac
 done
 
-# Rebuild the URL without the user and password, as they are stored in separate environment variables:
-export KC_DB_URL="jdbc:postgresql://${db_host}:${db_port}/${db_name}"
+# Rebuild the URL without the user and password, as they are stored in separate properties:
+db_url="jdbc:postgresql://${db_host}:${db_port}/${db_name}"
 index="0"
 for param_name in "${!db_params[@]}"; do
   if [[ "${index}" == "0" ]]; then
-    KC_DB_URL+="?"
+    db_url+="?"
   else
-    KC_DB_URL+="&"
+    db_url+="&"
   fi
   param_value="${db_params[${param_name}]}"
-  KC_DB_URL+="${param_name}=${param_value}"
+  db_url+="${param_name}=${param_value}"
   ((index++))
 done
 
-# Set the user and password environment variables:
-export KC_DB_USERNAME="${db_user}"
-export KC_DB_PASSWORD="${db_password}"
+# Write the Keycloak configuration file:
+conf_file="/opt/keycloak/conf/keycloak.conf"
+cat > "${conf_file}" <<.
+db=postgres
+db-url=${db_url}
+db-username=${db_user}
+db-password=${db_password}
+hostname={{ include "keycloak.hostname" . }}
+hostname-port=8000
+hostname-strict=true
+hostname-strict-https=true
+http-enabled=false
+https-enabled=true
+https-port=8000
+https-certificate-file=/opt/keycloak/tls/tls.crt
+https-certificate-key-file=/opt/keycloak/tls/tls.key
+.
+chmod 600 "${conf_file}"
 
 # Start Keycloak:
 exec /opt/keycloak/bin/kc.sh start --import-realm
+{{- end -}}
