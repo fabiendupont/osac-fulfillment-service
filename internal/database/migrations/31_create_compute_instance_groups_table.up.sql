@@ -11,6 +11,19 @@
 -- specific language governing permissions and limitations under the License.
 --
 
+-- Create the compute_instance_groups tables:
+--
+-- This migration establishes the database schema for ComputeInstanceGroup resources following the generic schema
+-- pattern. ComputeInstanceGroup manages a scaled set of identical ComputeInstances with placement semantics.
+-- Users create a group by specifying a ComputeInstanceClass and desired replica count. The system creates and
+-- manages individual ComputeInstance resources.
+--
+-- The data column stores:
+-- - spec: ComputeInstanceGroupSpec (compute_instance_class, replicas, image_ref, ssh_key_refs, subnet,
+--         security_groups, user_data, region, placement_policy)
+-- - status: ComputeInstanceGroupStatus (state, ready_replicas, instances, message)
+-- as JSONB.
+--
 create table compute_instance_groups (
   id text not null primary key,
   name text not null default '',
