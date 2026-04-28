@@ -288,6 +288,8 @@ func applyImageUpdate(base, update *privatev1.Image, mask *fieldmaskpb.FieldMask
 			base.SetBootMethod(update.GetBootMethod())
 		case "compatibility":
 			base.SetCompatibility(update.GetCompatibility())
+		case "checksum":
+			base.SetChecksum(update.GetChecksum())
 		case "status.state":
 			if base.Status == nil {
 				base.Status = &privatev1.ImageStatus{}
