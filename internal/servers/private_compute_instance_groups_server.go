@@ -227,6 +227,36 @@ func applyComputeInstanceGroupUpdate(base, update *privatev1.ComputeInstanceGrou
 				base.Spec = &privatev1.ComputeInstanceGroupSpec{}
 			}
 			base.Spec.SetReplicas(update.GetSpec().GetReplicas())
+		case "spec.image_ref":
+			if base.Spec == nil {
+				base.Spec = &privatev1.ComputeInstanceGroupSpec{}
+			}
+			base.Spec.SetImageRef(update.GetSpec().GetImageRef())
+		case "spec.ssh_key_refs":
+			if base.Spec == nil {
+				base.Spec = &privatev1.ComputeInstanceGroupSpec{}
+			}
+			base.Spec.SetSshKeyRefs(update.GetSpec().GetSshKeyRefs())
+		case "spec.subnet":
+			if base.Spec == nil {
+				base.Spec = &privatev1.ComputeInstanceGroupSpec{}
+			}
+			base.Spec.SetSubnet(update.GetSpec().GetSubnet())
+		case "spec.security_groups":
+			if base.Spec == nil {
+				base.Spec = &privatev1.ComputeInstanceGroupSpec{}
+			}
+			base.Spec.SetSecurityGroups(update.GetSpec().GetSecurityGroups())
+		case "spec.user_data":
+			if base.Spec == nil {
+				base.Spec = &privatev1.ComputeInstanceGroupSpec{}
+			}
+			base.Spec.SetUserData(update.GetSpec().GetUserData())
+		case "spec.region":
+			if base.Spec == nil {
+				base.Spec = &privatev1.ComputeInstanceGroupSpec{}
+			}
+			base.Spec.SetRegion(update.GetSpec().GetRegion())
 		case "spec.placement_policy":
 			if base.Spec == nil {
 				base.Spec = &privatev1.ComputeInstanceGroupSpec{}
@@ -247,6 +277,11 @@ func applyComputeInstanceGroupUpdate(base, update *privatev1.ComputeInstanceGrou
 				base.Status = &privatev1.ComputeInstanceGroupStatus{}
 			}
 			base.Status.SetInstances(update.GetStatus().GetInstances())
+		case "status.message":
+			if base.Status == nil {
+				base.Status = &privatev1.ComputeInstanceGroupStatus{}
+			}
+			base.Status.SetMessage(update.GetStatus().GetMessage())
 		}
 	}
 }

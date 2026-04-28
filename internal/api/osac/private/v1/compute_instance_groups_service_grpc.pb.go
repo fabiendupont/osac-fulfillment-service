@@ -35,8 +35,8 @@ const (
 	ComputeInstanceGroups_List_FullMethodName   = "/osac.private.v1.ComputeInstanceGroups/List"
 	ComputeInstanceGroups_Get_FullMethodName    = "/osac.private.v1.ComputeInstanceGroups/Get"
 	ComputeInstanceGroups_Create_FullMethodName = "/osac.private.v1.ComputeInstanceGroups/Create"
-	ComputeInstanceGroups_Delete_FullMethodName = "/osac.private.v1.ComputeInstanceGroups/Delete"
 	ComputeInstanceGroups_Update_FullMethodName = "/osac.private.v1.ComputeInstanceGroups/Update"
+	ComputeInstanceGroups_Delete_FullMethodName = "/osac.private.v1.ComputeInstanceGroups/Delete"
 	ComputeInstanceGroups_Signal_FullMethodName = "/osac.private.v1.ComputeInstanceGroups/Signal"
 )
 
@@ -50,10 +50,10 @@ type ComputeInstanceGroupsClient interface {
 	Get(ctx context.Context, in *ComputeInstanceGroupsGetRequest, opts ...grpc.CallOption) (*ComputeInstanceGroupsGetResponse, error)
 	// Creates a new compute instance group.
 	Create(ctx context.Context, in *ComputeInstanceGroupsCreateRequest, opts ...grpc.CallOption) (*ComputeInstanceGroupsCreateResponse, error)
-	// Deletes a compute instance group.
-	Delete(ctx context.Context, in *ComputeInstanceGroupsDeleteRequest, opts ...grpc.CallOption) (*ComputeInstanceGroupsDeleteResponse, error)
 	// Updates an existing compute instance group.
 	Update(ctx context.Context, in *ComputeInstanceGroupsUpdateRequest, opts ...grpc.CallOption) (*ComputeInstanceGroupsUpdateResponse, error)
+	// Deletes a compute instance group.
+	Delete(ctx context.Context, in *ComputeInstanceGroupsDeleteRequest, opts ...grpc.CallOption) (*ComputeInstanceGroupsDeleteResponse, error)
 	// Indicates that something changed in the object or the system that may require reconciling the object.
 	Signal(ctx context.Context, in *ComputeInstanceGroupsSignalRequest, opts ...grpc.CallOption) (*ComputeInstanceGroupsSignalResponse, error)
 }
@@ -96,20 +96,20 @@ func (c *computeInstanceGroupsClient) Create(ctx context.Context, in *ComputeIns
 	return out, nil
 }
 
-func (c *computeInstanceGroupsClient) Delete(ctx context.Context, in *ComputeInstanceGroupsDeleteRequest, opts ...grpc.CallOption) (*ComputeInstanceGroupsDeleteResponse, error) {
+func (c *computeInstanceGroupsClient) Update(ctx context.Context, in *ComputeInstanceGroupsUpdateRequest, opts ...grpc.CallOption) (*ComputeInstanceGroupsUpdateResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ComputeInstanceGroupsDeleteResponse)
-	err := c.cc.Invoke(ctx, ComputeInstanceGroups_Delete_FullMethodName, in, out, cOpts...)
+	out := new(ComputeInstanceGroupsUpdateResponse)
+	err := c.cc.Invoke(ctx, ComputeInstanceGroups_Update_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *computeInstanceGroupsClient) Update(ctx context.Context, in *ComputeInstanceGroupsUpdateRequest, opts ...grpc.CallOption) (*ComputeInstanceGroupsUpdateResponse, error) {
+func (c *computeInstanceGroupsClient) Delete(ctx context.Context, in *ComputeInstanceGroupsDeleteRequest, opts ...grpc.CallOption) (*ComputeInstanceGroupsDeleteResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ComputeInstanceGroupsUpdateResponse)
-	err := c.cc.Invoke(ctx, ComputeInstanceGroups_Update_FullMethodName, in, out, cOpts...)
+	out := new(ComputeInstanceGroupsDeleteResponse)
+	err := c.cc.Invoke(ctx, ComputeInstanceGroups_Delete_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -136,10 +136,10 @@ type ComputeInstanceGroupsServer interface {
 	Get(context.Context, *ComputeInstanceGroupsGetRequest) (*ComputeInstanceGroupsGetResponse, error)
 	// Creates a new compute instance group.
 	Create(context.Context, *ComputeInstanceGroupsCreateRequest) (*ComputeInstanceGroupsCreateResponse, error)
-	// Deletes a compute instance group.
-	Delete(context.Context, *ComputeInstanceGroupsDeleteRequest) (*ComputeInstanceGroupsDeleteResponse, error)
 	// Updates an existing compute instance group.
 	Update(context.Context, *ComputeInstanceGroupsUpdateRequest) (*ComputeInstanceGroupsUpdateResponse, error)
+	// Deletes a compute instance group.
+	Delete(context.Context, *ComputeInstanceGroupsDeleteRequest) (*ComputeInstanceGroupsDeleteResponse, error)
 	// Indicates that something changed in the object or the system that may require reconciling the object.
 	Signal(context.Context, *ComputeInstanceGroupsSignalRequest) (*ComputeInstanceGroupsSignalResponse, error)
 	mustEmbedUnimplementedComputeInstanceGroupsServer()
@@ -161,11 +161,11 @@ func (UnimplementedComputeInstanceGroupsServer) Get(context.Context, *ComputeIns
 func (UnimplementedComputeInstanceGroupsServer) Create(context.Context, *ComputeInstanceGroupsCreateRequest) (*ComputeInstanceGroupsCreateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Create not implemented")
 }
-func (UnimplementedComputeInstanceGroupsServer) Delete(context.Context, *ComputeInstanceGroupsDeleteRequest) (*ComputeInstanceGroupsDeleteResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
-}
 func (UnimplementedComputeInstanceGroupsServer) Update(context.Context, *ComputeInstanceGroupsUpdateRequest) (*ComputeInstanceGroupsUpdateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Update not implemented")
+}
+func (UnimplementedComputeInstanceGroupsServer) Delete(context.Context, *ComputeInstanceGroupsDeleteRequest) (*ComputeInstanceGroupsDeleteResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
 }
 func (UnimplementedComputeInstanceGroupsServer) Signal(context.Context, *ComputeInstanceGroupsSignalRequest) (*ComputeInstanceGroupsSignalResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Signal not implemented")
@@ -245,24 +245,6 @@ func _ComputeInstanceGroups_Create_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ComputeInstanceGroups_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ComputeInstanceGroupsDeleteRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ComputeInstanceGroupsServer).Delete(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ComputeInstanceGroups_Delete_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ComputeInstanceGroupsServer).Delete(ctx, req.(*ComputeInstanceGroupsDeleteRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _ComputeInstanceGroups_Update_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ComputeInstanceGroupsUpdateRequest)
 	if err := dec(in); err != nil {
@@ -277,6 +259,24 @@ func _ComputeInstanceGroups_Update_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ComputeInstanceGroupsServer).Update(ctx, req.(*ComputeInstanceGroupsUpdateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ComputeInstanceGroups_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ComputeInstanceGroupsDeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ComputeInstanceGroupsServer).Delete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ComputeInstanceGroups_Delete_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ComputeInstanceGroupsServer).Delete(ctx, req.(*ComputeInstanceGroupsDeleteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -319,12 +319,12 @@ var ComputeInstanceGroups_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ComputeInstanceGroups_Create_Handler,
 		},
 		{
-			MethodName: "Delete",
-			Handler:    _ComputeInstanceGroups_Delete_Handler,
-		},
-		{
 			MethodName: "Update",
 			Handler:    _ComputeInstanceGroups_Update_Handler,
+		},
+		{
+			MethodName: "Delete",
+			Handler:    _ComputeInstanceGroups_Delete_Handler,
 		},
 		{
 			MethodName: "Signal",

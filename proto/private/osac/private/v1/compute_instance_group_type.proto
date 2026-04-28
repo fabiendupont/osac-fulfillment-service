@@ -21,9 +21,16 @@ import "osac/private/v1/metadata_type.proto";
 // Scaling up increases replicas and creates new ComputeInstances. Scaling down removes instances
 // (last created first).
 message ComputeInstanceGroup {
+  // Unique identifier of the compute instance group.
   string id = 1;
+
+  // Metadata of the compute instance group.
   Metadata metadata = 2;
+
+  // Desired state of the compute instance group.
   ComputeInstanceGroupSpec spec = 3;
+
+  // Current state of the compute instance group.
   ComputeInstanceGroupStatus status = 4;
 }
 
@@ -79,10 +86,20 @@ message ComputeInstanceGroupStatus {
   optional string message = 4;
 }
 
+// Lifecycle states for ComputeInstanceGroup resources.
 enum ComputeInstanceGroupState {
+  // State is unknown or has not been determined yet.
   COMPUTE_INSTANCE_GROUP_STATE_UNSPECIFIED = 0;
+
+  // The compute instance group is being initialized and is not yet ready.
   COMPUTE_INSTANCE_GROUP_STATE_PENDING = 1;
+
+  // All desired replicas are running and the group is fully operational.
   COMPUTE_INSTANCE_GROUP_STATE_READY = 2;
+
+  // The group is scaling up or down and has not yet reached the desired replica count.
   COMPUTE_INSTANCE_GROUP_STATE_SCALING = 3;
+
+  // The compute instance group has encountered an error and cannot reach the desired state.
   COMPUTE_INSTANCE_GROUP_STATE_FAILED = 4;
 }
