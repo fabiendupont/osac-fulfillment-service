@@ -958,7 +958,7 @@ func (c *runnerContext) run(cmd *cobra.Command, argv []string) error { //nolint:
 		SetLogger(c.logger).
 		SetNotifier(notifier).
 		SetAttributionLogic(publicAttributionLogic).
-		SetTenancyLogic(publicTenancyLogic).
+		SetTenancyLogic(tenancyLogic).
 		SetMetricsRegisterer(metricsRegisterer).
 		Build()
 	if err != nil {
@@ -972,7 +972,7 @@ func (c *runnerContext) run(cmd *cobra.Command, argv []string) error { //nolint:
 		SetLogger(c.logger).
 		SetNotifier(notifier).
 		SetAttributionLogic(privateAttributionLogic).
-		SetTenancyLogic(privateTenancyLogic).
+		SetTenancyLogic(tenancyLogic).
 		SetMetricsRegisterer(metricsRegisterer).
 		Build()
 	if err != nil {
@@ -986,7 +986,7 @@ func (c *runnerContext) run(cmd *cobra.Command, argv []string) error { //nolint:
 		SetLogger(c.logger).
 		SetNotifier(notifier).
 		SetAttributionLogic(publicAttributionLogic).
-		SetTenancyLogic(publicTenancyLogic).
+		SetTenancyLogic(tenancyLogic).
 		SetMetricsRegisterer(metricsRegisterer).
 		Build()
 	if err != nil {
@@ -1000,7 +1000,7 @@ func (c *runnerContext) run(cmd *cobra.Command, argv []string) error { //nolint:
 		SetLogger(c.logger).
 		SetNotifier(notifier).
 		SetAttributionLogic(privateAttributionLogic).
-		SetTenancyLogic(privateTenancyLogic).
+		SetTenancyLogic(tenancyLogic).
 		SetMetricsRegisterer(metricsRegisterer).
 		Build()
 	if err != nil {
@@ -1014,7 +1014,7 @@ func (c *runnerContext) run(cmd *cobra.Command, argv []string) error { //nolint:
 		SetLogger(c.logger).
 		SetNotifier(notifier).
 		SetAttributionLogic(publicAttributionLogic).
-		SetTenancyLogic(publicTenancyLogic).
+		SetTenancyLogic(tenancyLogic).
 		SetMetricsRegisterer(metricsRegisterer).
 		Build()
 	if err != nil {
@@ -1028,7 +1028,7 @@ func (c *runnerContext) run(cmd *cobra.Command, argv []string) error { //nolint:
 		SetLogger(c.logger).
 		SetNotifier(notifier).
 		SetAttributionLogic(privateAttributionLogic).
-		SetTenancyLogic(privateTenancyLogic).
+		SetTenancyLogic(tenancyLogic).
 		SetMetricsRegisterer(metricsRegisterer).
 		Build()
 	if err != nil {
@@ -1042,7 +1042,7 @@ func (c *runnerContext) run(cmd *cobra.Command, argv []string) error { //nolint:
 		SetLogger(c.logger).
 		SetNotifier(notifier).
 		SetAttributionLogic(publicAttributionLogic).
-		SetTenancyLogic(publicTenancyLogic).
+		SetTenancyLogic(tenancyLogic).
 		SetMetricsRegisterer(metricsRegisterer).
 		Build()
 	if err != nil {
@@ -1056,7 +1056,7 @@ func (c *runnerContext) run(cmd *cobra.Command, argv []string) error { //nolint:
 		SetLogger(c.logger).
 		SetNotifier(notifier).
 		SetAttributionLogic(privateAttributionLogic).
-		SetTenancyLogic(privateTenancyLogic).
+		SetTenancyLogic(tenancyLogic).
 		SetMetricsRegisterer(metricsRegisterer).
 		Build()
 	if err != nil {

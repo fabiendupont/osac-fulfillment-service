@@ -61,6 +61,7 @@ var _ = Describe("Private SSH keys", func() {
 			}.Build(),
 		}.Build())
 		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("public_key"))
 	})
 
 	It("Updates public_key and recomputes fingerprint", func() {

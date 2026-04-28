@@ -63,8 +63,12 @@ message Image {
   // List of ComputeInstanceClass IDs that this image is compatible with.
   repeated string compatibility = 11;
 
+  // Checksum of the image for integrity verification. For example: "sha256:abc123...".
+  // Used by bare-metal provisioning backends (e.g., Metal3/Ironic) to verify the image after download.
+  optional string checksum = 12;
+
   // Current operational status of the image.
-  ImageStatus status = 12;
+  ImageStatus status = 13;
 }
 
 // Represents the current operational state of an Image.
