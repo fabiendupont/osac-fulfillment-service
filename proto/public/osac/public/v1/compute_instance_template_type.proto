@@ -56,7 +56,7 @@ message ComputeInstanceTemplate {
   string role = 9;
 
   // Ansible role collection containing the role.
-  string role_collection = 10;
+  string collection = 10;
 }
 
 // Contains type and documentation of a template parameter.

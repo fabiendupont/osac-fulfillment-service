@@ -147,7 +147,7 @@ var _ = Describe("Private compute instance templates server", func() {
 					Backend:        "metal3",
 					Site:           "paris",
 					Role:           "metal3_bm_rhel",
-					RoleCollection: "osac.templates",
+					Collection: "osac.compute_kubevirt",
 				}.Build(),
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())
@@ -160,7 +160,7 @@ var _ = Describe("Private compute instance templates server", func() {
 			Expect(object.GetBackend()).To(Equal("metal3"))
 			Expect(object.GetSite()).To(Equal("paris"))
 			Expect(object.GetRole()).To(Equal("metal3_bm_rhel"))
-			Expect(object.GetRoleCollection()).To(Equal("osac.templates"))
+			Expect(object.GetCollection()).To(Equal("osac.compute_kubevirt"))
 		})
 
 		It("List objects", func() {
@@ -302,7 +302,7 @@ var _ = Describe("Private compute instance templates server", func() {
 					Backend:        "kubevirt",
 					Site:           "paris",
 					Role:           "ocp_virt_vm",
-					RoleCollection: "osac.templates",
+					Collection: "osac.compute_kubevirt",
 				}.Build(),
 			}.Build())
 			Expect(err).ToNot(HaveOccurred())

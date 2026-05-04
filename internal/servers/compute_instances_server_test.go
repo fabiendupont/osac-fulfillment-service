@@ -151,7 +151,7 @@ var _ = Describe("Compute instances server", func() {
 				Backend:        "kubevirt",
 				Site:           "paris",
 				Role:           "ocp_virt_vm",
-				RoleCollection: "osac.templates",
+				Collection: "osac.compute_kubevirt",
 			}.Build()
 
 			_, err = templatesDao.Create().SetObject(template).Do(ctx)
