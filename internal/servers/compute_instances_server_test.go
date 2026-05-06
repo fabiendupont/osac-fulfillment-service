@@ -150,7 +150,7 @@ var _ = Describe("Compute instances server", func() {
 				}.Build(),
 				Backend:        "kubevirt",
 				Site:           "paris",
-				Role:           "ocp_virt_vm",
+				Role:           "instance",
 				Collection: "osac.compute_kubevirt",
 			}.Build()
 

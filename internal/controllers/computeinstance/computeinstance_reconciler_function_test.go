@@ -50,7 +50,7 @@ var _ = Describe("buildSpec", func() {
 			Expect(err).ToNot(HaveOccurred())
 			memory, err := anypb.New(wrapperspb.String("4Gi"))
 			Expect(err).ToNot(HaveOccurred())
-			template := "osac.compute_kubevirt.ocp_virt_vm"
+			template := "osac.compute_kubevirt.instance"
 			task := &task{
 				r: &function{logger: logger},
 				computeInstance: privatev1.ComputeInstance_builder{
@@ -80,7 +80,7 @@ var _ = Describe("buildSpec", func() {
 
 		It("Includes explicit fields in spec map when present", func() {
 			ctx := context.Background()
-			template := "osac.compute_kubevirt.ocp_virt_vm"
+			template := "osac.compute_kubevirt.instance"
 			task := &task{
 				r: &function{logger: logger},
 				computeInstance: privatev1.ComputeInstance_builder{
@@ -142,7 +142,7 @@ var _ = Describe("buildSpec", func() {
 
 		It("Excludes explicit fields from spec map when not set", func() {
 			ctx := context.Background()
-			template := "osac.compute_kubevirt.ocp_virt_vm"
+			template := "osac.compute_kubevirt.instance"
 			task := &task{
 				r: &function{logger: logger},
 				computeInstance: privatev1.ComputeInstance_builder{
@@ -172,7 +172,7 @@ var _ = Describe("buildSpec", func() {
 			Expect(err).ToNot(HaveOccurred())
 			memory, err := anypb.New(wrapperspb.String("2Gi"))
 			Expect(err).ToNot(HaveOccurred())
-			template := "osac.compute_kubevirt.ocp_virt_vm"
+			template := "osac.compute_kubevirt.instance"
 			task := &task{
 				r: &function{logger: logger},
 				computeInstance: privatev1.ComputeInstance_builder{
@@ -554,7 +554,7 @@ var _ = Describe("buildSpec with subnetRef", func() {
 			WithObjects(subnetCR).
 			Build()
 
-		template := "osac.compute_kubevirt.ocp_virt_vm"
+		template := "osac.compute_kubevirt.instance"
 		t := &task{
 			r: &function{logger: logger},
 			computeInstance: privatev1.ComputeInstance_builder{
@@ -580,7 +580,7 @@ var _ = Describe("buildSpec with subnetRef", func() {
 			WithScheme(scheme).
 			Build()
 
-		template := "osac.compute_kubevirt.ocp_virt_vm"
+		template := "osac.compute_kubevirt.instance"
 		t := &task{
 			r: &function{logger: logger},
 			computeInstance: privatev1.ComputeInstance_builder{
@@ -609,7 +609,7 @@ var _ = Describe("buildSpec with subnetRef", func() {
 			WithScheme(scheme).
 			Build()
 
-		template := "osac.compute_kubevirt.ocp_virt_vm"
+		template := "osac.compute_kubevirt.instance"
 		t := &task{
 			r: &function{logger: logger},
 			computeInstance: privatev1.ComputeInstance_builder{
@@ -656,7 +656,7 @@ var _ = Describe("buildSpec with subnetRef", func() {
 			WithObjects(subnetCR1, subnetCR2).
 			Build()
 
-		template := "osac.compute_kubevirt.ocp_virt_vm"
+		template := "osac.compute_kubevirt.instance"
 		t := &task{
 			r: &function{logger: logger},
 			computeInstance: privatev1.ComputeInstance_builder{

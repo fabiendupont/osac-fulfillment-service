@@ -303,7 +303,7 @@ var _ = Describe("Compute instance templates server", func() {
 					Description:    "My description.",
 					Backend:        "kubevirt",
 					Site:           "paris",
-					Role:           "ocp_virt_vm",
+					Role:           "instance",
 					Collection: "osac.compute_kubevirt",
 				}.Build(),
 			}.Build())
