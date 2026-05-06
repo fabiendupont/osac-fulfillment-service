@@ -64,7 +64,7 @@ var _ = Describe("Table renderer", func() {
 	// ComputeInstance via the table renderer, and returns the output.
 	registerTemplateAndRender := func(templateName string) string {
 		tmplBuilder := publicv1.ComputeInstanceTemplate_builder{
-			Id: "osac.compute_kubevirt.ocp_virt_vm",
+			Id: "osac.compute_kubevirt.instance",
 		}
 		if templateName != "" {
 			tmplBuilder.Metadata = publicv1.Metadata_builder{Name: templateName}.Build()
@@ -97,7 +97,7 @@ var _ = Describe("Table renderer", func() {
 		instance := publicv1.ComputeInstance_builder{
 			Id:       "019d53bd-42b4-7e23-b98e-6368490d3d83",
 			Metadata: publicv1.Metadata_builder{Name: "test"}.Build(),
-			Spec:     publicv1.ComputeInstanceSpec_builder{Template: "osac.compute_kubevirt.ocp_virt_vm"}.Build(),
+			Spec:     publicv1.ComputeInstanceSpec_builder{Template: "osac.compute_kubevirt.instance"}.Build(),
 		}.Build()
 
 		err = renderer.Render(ctx, []*publicv1.ComputeInstance{instance})
@@ -115,7 +115,7 @@ var _ = Describe("Table renderer", func() {
 				// Regression for MGMT-23970: TEMPLATE column was blank when metadata.name was empty.
 				"Falls back to the key when the looked-up object has no name",
 				"",
-				"osac.compute_kubevirt.ocp_virt_vm",
+				"osac.compute_kubevirt.instance",
 			),
 			Entry(
 				"Shows the template name when the looked-up object has a name",
