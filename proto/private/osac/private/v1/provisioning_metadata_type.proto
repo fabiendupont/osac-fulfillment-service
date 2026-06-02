@@ -1,0 +1,29 @@
+//
+// Copyright (c) 2025 Red Hat, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+
+syntax = "proto3";
+
+package osac.private.v1;
+
+// Binds a catalog item to an Ansible collection and ResourceAction for provisioning dispatch.
+// The operator reads this metadata to determine which AAP Job Template to invoke.
+message ProvisioningMetadata {
+  // Ansible collection that contains the provisioning roles (e.g., "osac.compute_kubevirt", "netris.osac").
+  // This is the Galaxy-compatible namespace.collection identifier.
+  string collection = 1;
+
+  // Resource action prefix within the collection (e.g., "instance", "cluster", "virtual_network").
+  // The operator derives the full role name by appending the event and phase:
+  // <resource_action>.<event>.main (e.g., "instance.create.main").
+  string resource_action = 2;
+}
