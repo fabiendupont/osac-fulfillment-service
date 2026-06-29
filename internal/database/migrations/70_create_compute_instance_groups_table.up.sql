@@ -11,53 +11,52 @@
 -- specific language governing permissions and limitations under the License.
 --
 
--- Create the ssh_keys tables:
+-- Create the compute_instance_groups tables:
 --
--- This migration establishes the database schema for SSHKey resources following the generic schema pattern.
--- SSHKey represents an SSH public key owned by a tenant user. A single SSHKey can be referenced by multiple
--- ComputeInstances, enabling centralized key management.
+-- This migration establishes the database schema for ComputeInstanceGroup resources following the generic schema
+-- pattern. ComputeInstanceGroup manages a scaled set of identical ComputeInstances with placement semantics.
+-- Users create a group by specifying a ComputeInstanceClass and desired replica count. The system creates and
+-- manages individual ComputeInstance resources.
 --
 -- The data column stores:
--- - public_key: SSH public key in authorized_keys format
--- - fingerprint: SHA256 fingerprint of the public key (computed by the server)
+-- - spec: ComputeInstanceGroupSpec (compute_instance_class, replicas, image_ref, ssh_key_refs, subnet,
+--         security_groups, user_data, region, placement_policy)
+-- - status: ComputeInstanceGroupStatus (state, ready_replicas, instances, message)
 -- as JSONB.
 --
-create table ssh_keys (
+create table compute_instance_groups (
   id text not null primary key,
   name text not null default '',
   creation_timestamp timestamp with time zone not null default now(),
   deletion_timestamp timestamp with time zone not null default 'epoch',
   finalizers text[] not null default '{}',
-  creators text[] not null default '{}',
-  tenants text[] not null default '{}',
+  creator text not null default '',
+  tenant text not null default '',
   labels jsonb not null default '{}'::jsonb,
   annotations jsonb not null default '{}'::jsonb,
   version integer not null default 0,
   data jsonb not null
 );
 
-create table archived_ssh_keys (
+create table archived_compute_instance_groups (
   id text not null,
   name text not null default '',
   creation_timestamp timestamp with time zone not null,
   deletion_timestamp timestamp with time zone not null,
   archival_timestamp timestamp with time zone not null default now(),
-  creators text[] not null default '{}',
-  tenants text[] not null default '{}',
+  creator text not null default '',
+  tenant text not null default '',
   labels jsonb not null default '{}'::jsonb,
   annotations jsonb not null default '{}'::jsonb,
   version integer not null default 0,
   data jsonb not null
 );
 
--- Add indexes on the name column for fast lookups:
-create index ssh_keys_by_name on ssh_keys (name);
+create index compute_instance_groups_by_name on compute_instance_groups (name);
+create index compute_instance_groups_by_creator on compute_instance_groups (creator);
+create index compute_instance_groups_by_tenant on compute_instance_groups (tenant);
+create index compute_instance_groups_by_label on compute_instance_groups using gin (labels);
 
--- Add indexes on the creators column for owner-based queries:
-create index ssh_keys_by_owner on ssh_keys using gin (creators);
-
--- Add indexes on the tenants column for tenant isolation:
-create index ssh_keys_by_tenant on ssh_keys using gin (tenants);
-
--- Add indexes on the labels column for label-based queries:
-create index ssh_keys_by_label on ssh_keys using gin (labels);
+alter table compute_instance_groups
+  add constraint compute_instance_groups_tenant_fk
+  foreign key (tenant) references tenants (id);

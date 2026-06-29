@@ -36,8 +36,8 @@ create table images (
   creation_timestamp timestamp with time zone not null default now(),
   deletion_timestamp timestamp with time zone not null default 'epoch',
   finalizers text[] not null default '{}',
-  creators text[] not null default '{}',
-  tenants text[] not null default '{}',
+  creator text not null default '',
+  tenant text not null default '',
   labels jsonb not null default '{}'::jsonb,
   annotations jsonb not null default '{}'::jsonb,
   version integer not null default 0,
@@ -50,8 +50,8 @@ create table archived_images (
   creation_timestamp timestamp with time zone not null,
   deletion_timestamp timestamp with time zone not null,
   archival_timestamp timestamp with time zone not null default now(),
-  creators text[] not null default '{}',
-  tenants text[] not null default '{}',
+  creator text not null default '',
+  tenant text not null default '',
   labels jsonb not null default '{}'::jsonb,
   annotations jsonb not null default '{}'::jsonb,
   version integer not null default 0,
@@ -62,10 +62,14 @@ create table archived_images (
 create index images_by_name on images (name);
 
 -- Add indexes on the creators column for owner-based queries:
-create index images_by_owner on images using gin (creators);
+create index images_by_creator on images (creator);
 
 -- Add indexes on the tenants column for tenant isolation:
-create index images_by_tenant on images using gin (tenants);
+create index images_by_tenant on images (tenant);
 
 -- Add indexes on the labels column for label-based queries:
 create index images_by_label on images using gin (labels);
+
+alter table images
+  add constraint images_tenant_fk
+  foreign key (tenant) references tenants (id);

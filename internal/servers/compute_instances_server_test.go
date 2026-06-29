@@ -137,6 +137,12 @@ var _ = Describe("Compute instances server", func() {
 				Build()
 			Expect(err).ToNot(HaveOccurred())
 
+			// Create default values for parameters
+			cpuDefault, err := anypb.New(wrapperspb.Int32(1))
+			Expect(err).ToNot(HaveOccurred())
+			memoryDefault, err := anypb.New(wrapperspb.Int32(2))
+			Expect(err).ToNot(HaveOccurred())
+
 			template := privatev1.ComputeInstanceTemplate_builder{
 				Id:          templateID,
 				Title:       "Test Template",

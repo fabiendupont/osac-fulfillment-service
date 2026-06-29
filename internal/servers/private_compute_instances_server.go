@@ -21,9 +21,14 @@ import (
 	"strconv"
 	"strings"
 
+	"maps"
+
 	"github.com/prometheus/client_golang/prometheus"
+
 	grpccodes "google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	privatev1 "github.com/osac-project/fulfillment-service/internal/api/osac/private/v1"
@@ -243,18 +248,6 @@ func (s *PrivateComputeInstancesServer) Create(ctx context.Context,
 		return
 	}
 
-	// Validate template or class:
-	err = s.validateTemplate(ctx, request.GetObject())
-	if err != nil {
-		return
-	}
-
-	// Validate SSH key references:
-	err = s.validateSSHKeyRefs(ctx, request.GetObject())
-	if err != nil {
-		return
-	}
-
 	// Dispatch between catalog item and template paths:
 	spec := request.GetObject().GetSpec()
 	catalogItemRef := spec.GetCatalogItem()
@@ -281,17 +274,29 @@ func (s *PrivateComputeInstancesServer) Create(ctx context.Context,
 		}
 	}
 
-	// Validate instance type existence and state (D-02: validate-only, no resolution).
-	// Must run after template/catalog defaults are applied so instance_type defaults
-	// from templates are visible.
-	var warnings []string
-	warnings, err = s.validateInstanceType(ctx, request.GetObject())
+	// Validate class-based creation if compute_instance_class is set:
+	err = s.validateComputeInstanceClass(ctx, request.GetObject())
+	if err != nil {
+		return
+	}
+
+	// Validate SSH key references:
+	err = s.validateSSHKeyRefs(ctx, request.GetObject())
 	if err != nil {
 		return
 	}
 
 	// Resolve image and SSH key references into denormalized data:
 	err = s.resolveReferences(ctx, request.GetObject())
+	if err != nil {
+		return
+	}
+
+	// Validate instance type existence and state (D-02: validate-only, no resolution).
+	// Must run after template/catalog defaults are applied so instance_type defaults
+	// from templates are visible.
+	var warnings []string
+	warnings, err = s.validateInstanceType(ctx, request.GetObject())
 	if err != nil {
 		return
 	}
@@ -333,18 +338,6 @@ func (s *PrivateComputeInstancesServer) Update(ctx context.Context,
 			return
 		}
 	}
-	if hasMaskPrefix(mask, "spec.template", "spec.template_parameters", "spec.compute_instance_class") {
-		err = s.validateTemplate(ctx, request.GetObject())
-		if err != nil {
-			return
-		}
-	}
-	if hasMaskPrefix(mask, "spec.image_ref", "spec.ssh_key_refs") {
-		err = s.resolveReferences(ctx, request.GetObject())
-		if err != nil {
-			return
-		}
-	}
 
 	err = s.validateTemplateImmutability(ctx, request)
 	if err != nil {
@@ -372,74 +365,75 @@ func (s *PrivateComputeInstancesServer) Signal(ctx context.Context,
 	return
 }
 
-// validateTemplateOrClass validates that either a template ID or a compute instance class is specified.
-// If compute_instance_class is set, it validates the class exists and is in READY state.
-// If template is set (legacy), it validates the template exists.
-// At least one must be specified.
-func (s *PrivateComputeInstancesServer) validateTemplate(ctx context.Context, vm *privatev1.ComputeInstance) error {
+// fetchAndValidateTemplate fetches the template, validates parameters in the compute instance spec,
+// applies template parameter defaults, and returns the template.
+func (s *PrivateComputeInstancesServer) fetchAndValidateTemplate(ctx context.Context, vm *privatev1.ComputeInstance) (*privatev1.ComputeInstanceTemplate, error) {
 	if vm == nil {
-		return grpcstatus.Errorf(grpccodes.InvalidArgument, "compute instance is mandatory")
+		return nil, grpcstatus.Errorf(grpccodes.InvalidArgument, "compute instance is mandatory")
 	}
 
 	spec := vm.GetSpec()
 	if spec == nil {
-		return grpcstatus.Errorf(grpccodes.InvalidArgument, "compute instance spec is mandatory")
+		return nil, grpcstatus.Errorf(grpccodes.InvalidArgument, "compute instance spec is mandatory")
 	}
 
-	classID := spec.GetComputeInstanceClass()
-	templateID := spec.GetTemplate()
-
-	if classID == "" && templateID == "" {
-		return grpcstatus.Errorf(grpccodes.InvalidArgument,
-			"either 'compute_instance_class' or 'template' must be specified")
+	template, err := s.fetchTemplate(ctx, spec.GetTemplate())
+	if err != nil {
+		return nil, err
 	}
 
-	if classID != "" {
-		getClassResponse, err := s.classesDao.Get().
-			SetId(classID).
-			Do(ctx)
-		if err != nil {
-			s.logger.ErrorContext(ctx, "ComputeInstanceClass retrieval failed",
-				slog.String("class_id", classID), slog.Any("error", err))
-			return grpcstatus.Errorf(grpccodes.Internal,
-				"failed to retrieve compute instance class '%s'", classID)
-		}
-		class := getClassResponse.GetObject()
-		if class == nil {
-			return grpcstatus.Errorf(grpccodes.InvalidArgument,
-				"compute instance class '%s' does not exist", classID)
-		}
-		if class.GetStatus().GetState() != privatev1.ComputeInstanceClassState_COMPUTE_INSTANCE_CLASS_STATE_READY {
-			return grpcstatus.Errorf(grpccodes.FailedPrecondition,
-				"compute instance class '%s' is not in READY state", classID)
-		}
-		if err := s.validateCapabilityRanges(spec, class.GetCapabilities()); err != nil {
-			return err
-		}
-		if imageRef := spec.GetImageRef(); imageRef != "" {
-			if err := s.validateImageClassCompatibility(ctx, imageRef, classID); err != nil {
-				return err
-			}
-		}
-		return nil
+	// Validate template parameters:
+	vmParameters := spec.GetTemplateParameters()
+	err = utils.ValidateComputeInstanceTemplateParameters(template, vmParameters)
+	if err != nil {
+		return nil, err
 	}
 
-	s.logger.WarnContext(ctx, "Deprecated: 'template' field used instead of 'compute_instance_class'",
-		slog.String("template_id", templateID))
+	// Set default values for template parameters:
+	actualVmParameters := utils.ProcessTemplateParametersWithDefaults(
+		utils.ComputeInstanceTemplateAdapter{ComputeInstanceTemplate: template},
+		vmParameters,
+	)
+	spec.SetTemplateParameters(actualVmParameters)
+
+	return template, nil
+}
+
+// fetchTemplate fetches a compute instance template
+func (s *PrivateComputeInstancesServer) fetchTemplate(ctx context.Context, templateID string) (*privatev1.ComputeInstanceTemplate, error) {
+	if templateID == "" {
+		return nil, grpcstatus.Errorf(grpccodes.InvalidArgument, "template ID is mandatory")
+	}
 
 	getTemplateResponse, err := s.templatesDao.Get().
 		SetId(templateID).
 		Do(ctx)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "Template retrieval failed",
-			slog.String("template_id", templateID), slog.Any("error", err))
-		return grpcstatus.Errorf(grpccodes.Internal,
-			"failed to retrieve template '%s'", templateID)
+		var notFoundErr *dao.ErrNotFound
+		if errors.As(err, &notFoundErr) {
+			return nil, grpcstatus.Errorf(grpccodes.InvalidArgument,
+				"template '%s' does not exist", templateID)
+		}
+		s.logger.ErrorContext(
+			ctx,
+			"Template retrieval failed",
+			slog.String("template_id", templateID),
+			slog.Any("error", err),
+		)
+		return nil, grpcstatus.Errorf(
+			grpccodes.Internal,
+			"failed to retrieve template '%s'",
+			templateID,
+		)
 	}
+
 	template := getTemplateResponse.GetObject()
 	if template == nil {
-		return grpcstatus.Errorf(grpccodes.InvalidArgument,
-			"template '%s' does not exist", templateID)
+		return nil, grpcstatus.Errorf(
+			grpccodes.InvalidArgument,
+			"template '%s' does not exist",
+			templateID,
+		)
 	}
 	return template, nil
 }
@@ -508,6 +502,167 @@ func (s *PrivateComputeInstancesServer) validateInstanceType(
 
 // validateTemplateImmutability ensures that the template and template_parameters fields
 // cannot be changed after compute instance creation.
+func (s *PrivateComputeInstancesServer) validateComputeInstanceClass(ctx context.Context, vm *privatev1.ComputeInstance) error {
+	if vm == nil {
+		return nil
+	}
+	spec := vm.GetSpec()
+	if spec == nil {
+		return nil
+	}
+	classID := spec.GetComputeInstanceClass()
+	if classID == "" {
+		return nil
+	}
+
+	getClassResponse, err := s.classesDao.Get().
+		SetId(classID).
+		Do(ctx)
+	if err != nil {
+		var notFoundErr *dao.ErrNotFound
+		if errors.As(err, &notFoundErr) {
+			return grpcstatus.Errorf(grpccodes.InvalidArgument,
+				"compute instance class '%s' does not exist", classID)
+		}
+		s.logger.ErrorContext(ctx, "ComputeInstanceClass retrieval failed",
+			slog.String("class_id", classID), slog.Any("error", err))
+		return grpcstatus.Errorf(grpccodes.Internal,
+			"failed to retrieve compute instance class '%s'", classID)
+	}
+	class := getClassResponse.GetObject()
+	if class == nil {
+		return grpcstatus.Errorf(grpccodes.InvalidArgument,
+			"compute instance class '%s' does not exist", classID)
+	}
+	if class.GetStatus().GetState() != privatev1.ComputeInstanceClassState_COMPUTE_INSTANCE_CLASS_STATE_READY {
+		return grpcstatus.Errorf(grpccodes.FailedPrecondition,
+			"compute instance class '%s' is not in READY state", classID)
+	}
+	if err := s.validateCapabilityRanges(spec, class.GetCapabilities()); err != nil {
+		return err
+	}
+	if imageRef := spec.GetImageRef(); imageRef != "" {
+		if err := s.validateImageClassCompatibility(ctx, imageRef, classID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *PrivateComputeInstancesServer) validateSSHKeyRefs(ctx context.Context, vm *privatev1.ComputeInstance) error {
+	if vm == nil {
+		return nil
+	}
+	refs := vm.GetSpec().GetSshKeyRefs()
+	if len(refs) == 0 {
+		return nil
+	}
+	for _, ref := range refs {
+		_, err := s.sshKeysDao.Get().SetId(ref).Do(ctx)
+		if err != nil {
+			var notFoundErr *dao.ErrNotFound
+			if errors.As(err, &notFoundErr) {
+				return grpcstatus.Errorf(grpccodes.InvalidArgument,
+					"ssh key '%s' does not exist", ref)
+			}
+			return grpcstatus.Errorf(grpccodes.Internal,
+				"failed to retrieve ssh key '%s'", ref)
+		}
+	}
+	return nil
+}
+
+func (s *PrivateComputeInstancesServer) resolveReferences(ctx context.Context, vm *privatev1.ComputeInstance) error {
+	if vm == nil {
+		return nil
+	}
+	spec := vm.GetSpec()
+
+	// Resolve image reference:
+	if imageRef := spec.GetImageRef(); imageRef != "" {
+		getImageResponse, err := s.imagesDao.Get().SetId(imageRef).Do(ctx)
+		if err != nil {
+			return grpcstatus.Errorf(grpccodes.Internal,
+				"failed to retrieve image '%s'", imageRef)
+		}
+		image := getImageResponse.GetObject()
+		spec.SetResolvedImage(&privatev1.ResolvedImage{
+			SourceType: image.GetSourceType(),
+			SourceRef:  image.GetSourceRef(),
+			BootMethod: image.GetBootMethod(),
+		})
+	}
+
+	// Resolve SSH key references:
+	if refs := spec.GetSshKeyRefs(); len(refs) > 0 {
+		resolved := make([]string, 0, len(refs))
+		for _, ref := range refs {
+			getKeyResponse, err := s.sshKeysDao.Get().SetId(ref).Do(ctx)
+			if err != nil {
+				return grpcstatus.Errorf(grpccodes.Internal,
+					"failed to retrieve ssh key '%s'", ref)
+			}
+			resolved = append(resolved, getKeyResponse.GetObject().GetPublicKey())
+		}
+		spec.SetResolvedSshKeys(resolved)
+	}
+
+	return nil
+}
+
+func (s *PrivateComputeInstancesServer) validateImageClassCompatibility(
+	ctx context.Context, imageRef string, classID string) error {
+	getImageResponse, err := s.imagesDao.Get().SetId(imageRef).Do(ctx)
+	if err != nil {
+		var notFoundErr *dao.ErrNotFound
+		if errors.As(err, &notFoundErr) {
+			return grpcstatus.Errorf(grpccodes.InvalidArgument,
+				"image '%s' does not exist", imageRef)
+		}
+		return grpcstatus.Errorf(grpccodes.Internal,
+			"failed to retrieve image '%s'", imageRef)
+	}
+	image := getImageResponse.GetObject()
+	for _, compatClass := range image.GetCompatibility() {
+		if compatClass == classID {
+			return nil
+		}
+	}
+	if len(image.GetCompatibility()) == 0 {
+		return nil
+	}
+	return grpcstatus.Errorf(grpccodes.InvalidArgument,
+		"image '%s' is not compatible with compute instance class '%s'", imageRef, classID)
+}
+
+func (s *PrivateComputeInstancesServer) validateCapabilityRanges(
+	spec *privatev1.ComputeInstanceSpec, capabilities *privatev1.ComputeInstanceClassCapabilities) error {
+	if capabilities == nil {
+		return nil
+	}
+	if cores := spec.GetCores(); cores != 0 {
+		if min := capabilities.GetCoresMin(); min != 0 && cores < min {
+			return grpcstatus.Errorf(grpccodes.InvalidArgument,
+				"cores %d is below minimum %d for this class", cores, min)
+		}
+		if max := capabilities.GetCoresMax(); max != 0 && cores > max {
+			return grpcstatus.Errorf(grpccodes.InvalidArgument,
+				"cores %d exceeds maximum %d for this class", cores, max)
+		}
+	}
+	if mem := spec.GetMemoryGib(); mem != 0 {
+		if min := capabilities.GetMemoryGibMin(); min != 0 && mem < min {
+			return grpcstatus.Errorf(grpccodes.InvalidArgument,
+				"memory_gib %d is below minimum %d for this class", mem, min)
+		}
+		if max := capabilities.GetMemoryGibMax(); max != 0 && mem > max {
+			return grpcstatus.Errorf(grpccodes.InvalidArgument,
+				"memory_gib %d exceeds maximum %d for this class", mem, max)
+		}
+	}
+	return nil
+}
+
 func (s *PrivateComputeInstancesServer) validateTemplateImmutability(ctx context.Context,
 	request *privatev1.ComputeInstancesUpdateRequest) error {
 	updateMask := request.GetUpdateMask()
@@ -639,170 +794,6 @@ func (s *PrivateComputeInstancesServer) validateNetworkAttachmentsImmutability(
 				"cannot change network_attachments[%d].subnet from '%s' to '%s': subnet is immutable",
 				i, existingSubnet, newSubnet,
 			)
-		}
-	}
-
-	return nil
-}
-
-func (s *PrivateComputeInstancesServer) validateSSHKeyRefs(ctx context.Context, vm *privatev1.ComputeInstance) error {
-	if vm == nil || vm.GetSpec() == nil {
-		return nil
-	}
-	for _, keyRef := range vm.GetSpec().GetSshKeyRefs() {
-		getResponse, err := s.sshKeysDao.Get().
-			SetId(keyRef).
-			Do(ctx)
-		if err != nil {
-			s.logger.ErrorContext(ctx, "SSHKey retrieval failed",
-				slog.String("ssh_key_ref", keyRef), slog.Any("error", err))
-			return grpcstatus.Errorf(grpccodes.Internal,
-				"failed to retrieve SSH key '%s'", keyRef)
-		}
-		if getResponse.GetObject() == nil {
-			return grpcstatus.Errorf(grpccodes.InvalidArgument,
-				"SSH key '%s' does not exist", keyRef)
-		}
-	}
-	return nil
-}
-
-func (s *PrivateComputeInstancesServer) resolveReferences(ctx context.Context, vm *privatev1.ComputeInstance) error {
-	if vm == nil || vm.GetSpec() == nil {
-		return nil
-	}
-	spec := vm.GetSpec()
-
-	if imageRef := spec.GetImageRef(); imageRef != "" {
-		getResponse, err := s.imagesDao.Get().
-			SetId(imageRef).
-			Do(ctx)
-		if err != nil {
-			s.logger.ErrorContext(ctx, "Image retrieval failed during resolution",
-				slog.String("image_ref", imageRef), slog.Any("error", err))
-			return grpcstatus.Errorf(grpccodes.Internal,
-				"failed to resolve image '%s'", imageRef)
-		}
-		image := getResponse.GetObject()
-		if image != nil {
-			resolved := &privatev1.ResolvedImage{}
-			resolved.SetSourceType(image.GetSourceType())
-			resolved.SetSourceRef(image.GetSourceRef())
-			resolved.SetBootMethod(image.GetBootMethod())
-			if image.HasChecksum() {
-				resolved.SetChecksum(image.GetChecksum())
-			}
-			spec.SetResolvedImage(resolved)
-		}
-	}
-
-	if refs := spec.GetSshKeyRefs(); len(refs) > 0 {
-		resolvedKeys := make([]string, 0, len(refs))
-		for _, keyRef := range refs {
-			getResponse, err := s.sshKeysDao.Get().
-				SetId(keyRef).
-				Do(ctx)
-			if err != nil {
-				s.logger.ErrorContext(ctx, "SSHKey retrieval failed during resolution",
-					slog.String("ssh_key_ref", keyRef), slog.Any("error", err))
-				return grpcstatus.Errorf(grpccodes.Internal,
-					"failed to resolve SSH key '%s'", keyRef)
-			}
-			key := getResponse.GetObject()
-			if key != nil {
-				resolvedKeys = append(resolvedKeys, key.GetPublicKey())
-			}
-		}
-		spec.SetResolvedSshKeys(resolvedKeys)
-	}
-
-	return nil
-}
-
-func (s *PrivateComputeInstancesServer) validateImageClassCompatibility(
-	ctx context.Context, imageRef string, classID string,
-) error {
-	getImageResponse, err := s.imagesDao.Get().
-		SetId(imageRef).
-		Do(ctx)
-	if err != nil {
-		s.logger.ErrorContext(ctx, "Image retrieval failed",
-			slog.String("image_ref", imageRef), slog.Any("error", err))
-		return grpcstatus.Errorf(grpccodes.Internal,
-			"failed to retrieve image '%s'", imageRef)
-	}
-	image := getImageResponse.GetObject()
-	if image == nil {
-		return grpcstatus.Errorf(grpccodes.InvalidArgument,
-			"image '%s' does not exist", imageRef)
-	}
-	compatibility := image.GetCompatibility()
-	if len(compatibility) > 0 {
-		for _, compatibleClass := range compatibility {
-			if compatibleClass == classID {
-				return nil
-			}
-		}
-		return grpcstatus.Errorf(grpccodes.InvalidArgument,
-			"image '%s' is not compatible with compute instance class '%s'",
-			imageRef, classID)
-	}
-	return nil
-}
-
-func (s *PrivateComputeInstancesServer) validateCapabilityRanges(
-	spec *privatev1.ComputeInstanceSpec,
-	caps *privatev1.ComputeInstanceClassCapabilities,
-) error {
-	if caps == nil {
-		return nil
-	}
-
-	if cores := spec.GetCores(); cores != 0 {
-		if fixed := caps.GetCoresFixed(); fixed != 0 && cores != fixed {
-			return grpcstatus.Errorf(grpccodes.InvalidArgument,
-				"cores must be %d for this class (got %d)", fixed, cores)
-		}
-		if min := caps.GetCoresMin(); min != 0 && cores < min {
-			return grpcstatus.Errorf(grpccodes.InvalidArgument,
-				"cores must be at least %d for this class (got %d)", min, cores)
-		}
-		if max := caps.GetCoresMax(); max != 0 && cores > max {
-			return grpcstatus.Errorf(grpccodes.InvalidArgument,
-				"cores must be at most %d for this class (got %d)", max, cores)
-		}
-	}
-
-	if mem := spec.GetMemoryGib(); mem != 0 {
-		if fixed := caps.GetMemoryGibFixed(); fixed != 0 && mem != fixed {
-			return grpcstatus.Errorf(grpccodes.InvalidArgument,
-				"memory_gib must be %d for this class (got %d)", fixed, mem)
-		}
-		if min := caps.GetMemoryGibMin(); min != 0 && mem < min {
-			return grpcstatus.Errorf(grpccodes.InvalidArgument,
-				"memory_gib must be at least %d for this class (got %d)", min, mem)
-		}
-		if max := caps.GetMemoryGibMax(); max != 0 && mem > max {
-			return grpcstatus.Errorf(grpccodes.InvalidArgument,
-				"memory_gib must be at most %d for this class (got %d)", max, mem)
-		}
-	}
-
-	if disk := spec.GetBootDisk(); disk != nil {
-		storage := caps.GetStorage()
-		if storage != nil && disk.GetSizeGib() != 0 {
-			if fixed := storage.GetBootDiskGibFixed(); fixed != 0 && disk.GetSizeGib() != fixed {
-				return grpcstatus.Errorf(grpccodes.InvalidArgument,
-					"boot_disk.size_gib must be %d for this class (got %d)", fixed, disk.GetSizeGib())
-			}
-			if min := storage.GetBootDiskGibMin(); min != 0 && disk.GetSizeGib() < min {
-				return grpcstatus.Errorf(grpccodes.InvalidArgument,
-					"boot_disk.size_gib must be at least %d for this class (got %d)", min, disk.GetSizeGib())
-			}
-			if max := storage.GetBootDiskGibMax(); max != 0 && disk.GetSizeGib() > max {
-				return grpcstatus.Errorf(grpccodes.InvalidArgument,
-					"boot_disk.size_gib must be at most %d for this class (got %d)", max, disk.GetSizeGib())
-			}
 		}
 	}
 

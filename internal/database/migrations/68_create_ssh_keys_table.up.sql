@@ -11,44 +11,39 @@
 -- specific language governing permissions and limitations under the License.
 --
 
--- Create the compute_instance_classes tables:
+-- Create the ssh_keys tables:
 --
--- This migration establishes the database schema for ComputeInstanceClass resources following the generic schema
--- pattern. ComputeInstanceClass describes a provider-defined SKU or catalog entry for compute offerings. It
--- represents a specific compute offering that tenants can order (e.g., "bm-large" for a bare metal server with
--- 64 cores and 256 GiB of memory).
+-- This migration establishes the database schema for SSHKey resources following the generic schema pattern.
+-- SSHKey represents an SSH public key owned by a tenant user. A single SSHKey can be referenced by multiple
+-- ComputeInstances, enabling centralized key management.
 --
 -- The data column stores:
--- - title: Human-friendly short description
--- - description: Human-friendly long description (Markdown)
--- - backend: Provisioning type discriminator (e.g., "baremetal", "virtual")
--- - capabilities: ComputeInstanceClassCapabilities (cores, memory, gpus, storage)
--- - templates: Repeated ComputeInstanceClassTemplateRef (name, site)
--- - status: ComputeInstanceClassStatus (state, message)
+-- - public_key: SSH public key in authorized_keys format
+-- - fingerprint: SHA256 fingerprint of the public key (computed by the server)
 -- as JSONB.
 --
-create table compute_instance_classes (
+create table ssh_keys (
   id text not null primary key,
   name text not null default '',
   creation_timestamp timestamp with time zone not null default now(),
   deletion_timestamp timestamp with time zone not null default 'epoch',
   finalizers text[] not null default '{}',
-  creators text[] not null default '{}',
-  tenants text[] not null default '{}',
+  creator text not null default '',
+  tenant text not null default '',
   labels jsonb not null default '{}'::jsonb,
   annotations jsonb not null default '{}'::jsonb,
   version integer not null default 0,
   data jsonb not null
 );
 
-create table archived_compute_instance_classes (
+create table archived_ssh_keys (
   id text not null,
   name text not null default '',
   creation_timestamp timestamp with time zone not null,
   deletion_timestamp timestamp with time zone not null,
   archival_timestamp timestamp with time zone not null default now(),
-  creators text[] not null default '{}',
-  tenants text[] not null default '{}',
+  creator text not null default '',
+  tenant text not null default '',
   labels jsonb not null default '{}'::jsonb,
   annotations jsonb not null default '{}'::jsonb,
   version integer not null default 0,
@@ -56,13 +51,17 @@ create table archived_compute_instance_classes (
 );
 
 -- Add indexes on the name column for fast lookups:
-create index compute_instance_classes_by_name on compute_instance_classes (name);
+create index ssh_keys_by_name on ssh_keys (name);
 
 -- Add indexes on the creators column for owner-based queries:
-create index compute_instance_classes_by_owner on compute_instance_classes using gin (creators);
+create index ssh_keys_by_creator on ssh_keys (creator);
 
 -- Add indexes on the tenants column for tenant isolation:
-create index compute_instance_classes_by_tenant on compute_instance_classes using gin (tenants);
+create index ssh_keys_by_tenant on ssh_keys (tenant);
 
 -- Add indexes on the labels column for label-based queries:
-create index compute_instance_classes_by_label on compute_instance_classes using gin (labels);
+create index ssh_keys_by_label on ssh_keys using gin (labels);
+
+alter table ssh_keys
+  add constraint ssh_keys_tenant_fk
+  foreign key (tenant) references tenants (id);

@@ -16,13 +16,22 @@ package computeinstance
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
+	"sort"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	publicv1 "github.com/osac-project/fulfillment-service/internal/api/osac/public/v1"
 	"github.com/osac-project/fulfillment-service/internal/config"
@@ -94,6 +103,12 @@ func Cmd() *cobra.Command {
 		memoryFlagHelp,
 	)
 	flags.StringVar(
+		&runner.args.instanceType,
+		"instance-type",
+		"",
+		instanceTypeFlagHelp,
+	)
+	flags.StringVar(
 		&runner.args.imageSourceRef,
 		"image",
 		"",
@@ -135,56 +150,23 @@ func Cmd() *cobra.Command {
 		"",
 		userDataFlagHelp,
 	)
-	flags.StringVar(
-		&runner.args.subnet,
-		"subnet",
-		"",
-		subnetFlagHelp,
-	)
-	flags.StringSliceVar(
-		&runner.args.securityGroups,
-		"security-group",
-		nil,
-		securityGroupFlagHelp,
-	)
 	flags.StringArrayVar(
 		&runner.args.networkAttachments,
 		"network-attachment",
 		nil,
 		networkAttachmentFlagHelp,
 	)
-	flags.StringVarP(
-		&runner.args.class,
-		"class",
-		"c",
-		"",
-		"ComputeInstanceClass name (alternative to --template).",
+	flags.BoolVar(
+		&runner.args.windows,
+		"windows",
+		false,
+		windowsFlagHelp,
 	)
-	flags.StringVar(
-		&runner.args.region,
-		"region",
-		"",
-		"Region for template selection within the class.",
-	)
-	flags.StringVar(
-		&runner.args.imageRef,
-		"image-ref",
-		"",
-		"Image resource name (alternative to --image).",
-	)
-	flags.StringSliceVar(
-		&runner.args.sshKeyRefs,
-		"ssh-key-ref",
-		[]string{},
-		"SSHKey resource name. Repeatable.",
-	)
-
-	// Mark deprecated flags
-	flags.MarkDeprecated("subnet", "use --network-attachment instead")
-	flags.MarkDeprecated("security-group", "use --network-attachment instead")
 
 	result.MarkFlagsMutuallyExclusive("catalog-item", "template")
 	result.MarkFlagsOneRequired("catalog-item", "template")
+	result.MarkFlagsMutuallyExclusive("instance-type", "cores")
+	result.MarkFlagsMutuallyExclusive("instance-type", "memory-gib")
 	return result
 }
 
@@ -197,6 +179,7 @@ type runnerContext struct {
 		templateParameterFiles  []string
 		cores                   int32
 		memoryGiB               int32
+		instanceType            string
 		imageSourceRef          string
 		imageSourceType         string
 		sshKey                  string
@@ -204,13 +187,8 @@ type runnerContext struct {
 		additionalDisks         []string
 		runStrategy             string
 		userData                string
-		subnet                  string
-		securityGroups          []string
 		networkAttachments      []string
-		class                   string
-		region                  string
-		imageRef                string
-		sshKeyRefs              []string
+		windows                 bool
 	}
 	logger                 *slog.Logger
 	console                *terminal.Console
@@ -252,15 +230,6 @@ func (c *runnerContext) run(cmd *cobra.Command, args []string) error {
 	cfg := config.SettingsFromContext(ctx)
 	if !cfg.Armed() {
 		return fmt.Errorf("there is no configuration, run the 'login' command")
-	}
-	if c.args.template != "" && c.args.class != "" {
-		return fmt.Errorf("--class and --template are mutually exclusive")
-	}
-	if c.args.imageRef != "" && c.args.imageSourceRef != "" {
-		return fmt.Errorf("--image-ref and --image are mutually exclusive")
-	}
-	if len(c.args.sshKeyRefs) > 0 && c.args.sshKey != "" {
-		return fmt.Errorf("--ssh-key-ref and --ssh-key are mutually exclusive")
 	}
 
 	// Create the gRPC connection from the configuration:
@@ -306,36 +275,40 @@ func (c *runnerContext) run(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to create compute instance: %w", err)
 		}
 
+		for _, w := range response.GetWarnings() {
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
+		}
+
 		computeInstance = response.Object
 		c.console.Infof(ctx, "Created compute instance '%s'.\n", computeInstance.Id)
 		return nil
 	}
 
-	var spec *publicv1.ComputeInstanceSpec
+	// Legacy template path (existing code continues below):
 
-	if c.args.class != "" {
-		spec, err = c.buildClassBasedSpec()
-	} else {
-		// Legacy template-based flow
-		template, findErr := c.findTemplate(ctx)
-		if findErr != nil {
-			return findErr
-		}
-		if template == nil {
-			return exit.Error(1)
-		}
-		templateParameterValues, templateParameterIssues := c.parseTemplateParameters(ctx, template)
-		if len(templateParameterIssues) > 0 {
-			validTemplateParameters := c.validTemplateParameters(template)
-			c.console.Render(ctx, "template_parameter_issues.txt", map[string]any{
-				"Template":   c.args.template,
-				"Parameters": validTemplateParameters,
-				"Issues":     templateParameterIssues,
-			})
-			return exit.Error(1)
-		}
-		spec, err = c.buildSpec(template.GetId(), templateParameterValues)
+	// Fetch the compute instance template:
+	template, err := c.findTemplate(ctx)
+	if err != nil {
+		return err
 	}
+	if template == nil {
+		return exit.Error(1)
+	}
+
+	// Parse the template parameters:
+	templateParameterValues, templateParameterIssues := c.parseTemplateParameters(ctx, template)
+	if len(templateParameterIssues) > 0 {
+		validTemplateParameters := c.validTemplateParameters(template)
+		c.console.Render(ctx, "template_parameter_issues.txt", map[string]any{
+			"Template":   c.args.template,
+			"Parameters": validTemplateParameters,
+			"Issues":     templateParameterIssues,
+		})
+		return exit.Error(1)
+	}
+
+	// Build the spec:
+	spec, err := c.buildSpec(template.GetId(), templateParameterValues)
 	if err != nil {
 		return err
 	}
@@ -356,6 +329,11 @@ func (c *runnerContext) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create compute instance: %w", err)
 	}
 
+	// Display warnings from the server response:
+	for _, w := range response.GetWarnings() {
+		fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
+	}
+
 	// Display the result:
 	computeInstance = response.Object
 	c.console.Infof(ctx, "Created compute instance '%s'.\n", computeInstance.Id)
@@ -374,7 +352,7 @@ func (c *runnerContext) findTemplate(ctx context.Context) (result *publicv1.Comp
 	)
 	response, err := c.templatesClient.List(ctx, publicv1.ComputeInstanceTemplatesListRequest_builder{
 		Filter: new(filter),
-		Limit:  proto.Int32(10),
+		Limit:  new(int32(10)),
 	}.Build())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list templates: %w", err)
@@ -401,7 +379,7 @@ func (c *runnerContext) findTemplate(ctx context.Context) (result *publicv1.Comp
 
 	// If we are here then no matches were found, we will show to the user some of the available templates:
 	response, err = c.templatesClient.List(ctx, publicv1.ComputeInstanceTemplatesListRequest_builder{
-		Limit: proto.Int32(10),
+		Limit: new(int32(10)),
 	}.Build())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list templates: %w", err)
@@ -415,9 +393,318 @@ func (c *runnerContext) findTemplate(ctx context.Context) (result *publicv1.Comp
 	return
 }
 
+// parseTemplateParameters parses the '--template-parameter' and '--template-parameter-file' flags into a map of
+// parameter name to value, and a list of issues found. The issues are intended for display to the user.
 func (c *runnerContext) parseTemplateParameters(ctx context.Context,
 	template *publicv1.ComputeInstanceTemplate) (result map[string]*anypb.Any, issues []string) {
+	// Prepare empty results and issues:
 	result = map[string]*anypb.Any{}
+
+	// Make a map of parameter definitions indexed by name for quick lookup:
+	definitions := map[string]*publicv1.ComputeInstanceTemplateParameterDefinition{}
+	for _, definition := range template.GetParameters() {
+		definitions[definition.GetName()] = definition
+	}
+
+	// Parse '--template-parameter' flags:
+	for _, flag := range c.args.templateParameterValues {
+		parts := strings.SplitN(flag, "=", 2)
+		if len(parts) != 2 {
+			name := strings.TrimSpace(flag)
+			definition := definitions[name]
+			if definition == nil {
+				issues = append(
+					issues,
+					fmt.Sprintf(
+						"In '%s' parameter '%s' doesn't exist, and if it existed the value "+
+							"would be missing",
+						flag, name,
+					),
+				)
+			} else {
+				issues = append(
+					issues,
+					fmt.Sprintf(
+						"In '%s' parameter value is missing",
+						flag,
+					),
+				)
+			}
+			continue
+		}
+		name := strings.TrimSpace(parts[0])
+		if name == "" {
+			issues = append(
+				issues,
+				fmt.Sprintf(
+					"In '%s' parameter name is missing",
+					flag,
+				),
+			)
+			continue
+		}
+		definition := definitions[name]
+		if definition == nil {
+			issues = append(
+				issues,
+				fmt.Sprintf(
+					"In '%s' parameter '%s' doesn't exist",
+					flag, name,
+				),
+			)
+			continue
+		}
+		text := strings.TrimSpace(parts[1])
+		value, issue := c.convertTextToTemplateParameterValue(ctx, text, definition.GetType())
+		if issue != "" {
+			issues = append(issues, fmt.Sprintf("In '%s' %s", flag, issue))
+			continue
+		}
+		result[name] = value
+	}
+
+	// Parse '--template-parameter-file' flags:
+	for _, flag := range c.args.templateParameterFiles {
+		parts := strings.SplitN(flag, "=", 2)
+		if len(parts) != 2 {
+			name := strings.TrimSpace(flag)
+			definition := definitions[name]
+			if definition == nil {
+				issues = append(issues, fmt.Sprintf(
+					"In '%s' parameter '%s' doesn't exist, and if existed the file would be "+
+						"missing",
+					flag, name,
+				))
+			} else {
+				issues = append(
+					issues,
+					fmt.Sprintf(
+						"In '%s' file is missing",
+						flag,
+					))
+			}
+			continue
+		}
+		name := strings.TrimSpace(parts[0])
+		if name == "" {
+			issues = append(
+				issues,
+				fmt.Sprintf(
+					"In '%s' parameter name is missing",
+					flag,
+				),
+			)
+			continue
+		}
+		definition := definitions[name]
+		if definition == nil {
+			issues = append(
+				issues,
+				fmt.Sprintf(
+					"In '%s' parameter '%s' doesn't exist",
+					flag, name,
+				),
+			)
+			continue
+		}
+		file := strings.TrimSpace(parts[1])
+		if file == "" {
+			issues = append(
+				issues,
+				fmt.Sprintf(
+					"In '%s' file is missing",
+					flag,
+				),
+			)
+			continue
+		}
+		data, err := os.ReadFile(filepath.Clean(file))
+		if errors.Is(err, os.ErrNotExist) {
+			issues = append(
+				issues, fmt.Sprintf(
+					"In '%s' file '%s' doesn't exist",
+					flag, file,
+				),
+			)
+			continue
+		}
+		if err != nil {
+			issues = append(
+				issues,
+				fmt.Sprintf(
+					"In '%s' failed to read file '%s': %v",
+					flag, file, err,
+				),
+			)
+			continue
+		}
+		text := string(data)
+		value, issue := c.convertTextToTemplateParameterValue(ctx, text, definition.GetType())
+		if issue != "" {
+			issues = append(
+				issues,
+				fmt.Sprintf("In '%s' %s'", flag, issue),
+			)
+			continue
+		}
+		result[name] = value
+	}
+
+	// Add issues for missing required parameters, at the end of the list and sorted by parameter name:
+	var missing []*publicv1.ComputeInstanceTemplateParameterDefinition
+	for _, definition := range template.GetParameters() {
+		if definition.GetRequired() && result[definition.GetName()] == nil {
+			missing = append(missing, definition)
+		}
+	}
+	sort.Slice(missing, func(i, j int) bool {
+		return missing[i].GetName() < missing[j].GetName()
+	})
+	for _, definition := range missing {
+		issues = append(
+			issues,
+			fmt.Sprintf("Parameter '%s' is required", definition.GetName()),
+		)
+	}
+
+	return
+}
+
+// convertTextToTemplateParameterValue converts a string value to the appropriate protobuf type based on the kind. It
+// returns the value and a string descibing the issue if the conversion fails.
+func (c *runnerContext) convertTextToTemplateParameterValue(ctx context.Context, text,
+	kind string) (result *anypb.Any, issue string) {
+	var wrapper proto.Message
+	switch kind {
+	case "type.googleapis.com/google.protobuf.StringValue":
+		wrapper = &wrapperspb.StringValue{Value: text}
+	case "type.googleapis.com/google.protobuf.BoolValue":
+		text = strings.TrimSpace(text)
+		value, err := strconv.ParseBool(text)
+		if err != nil {
+			c.logger.DebugContext(
+				ctx,
+				"Failed to parse boolean",
+				slog.String("text", text),
+				slog.Any("error", err),
+			)
+			issue = fmt.Sprintf(
+				"value '%s' isn't a valid boolean, valid values are 'true' and 'false'",
+				text,
+			)
+			return
+		}
+		wrapper = &wrapperspb.BoolValue{Value: value}
+	case "type.googleapis.com/google.protobuf.Int32Value":
+		text = strings.TrimSpace(text)
+		var value int64
+		value, err := strconv.ParseInt(text, 10, 32)
+		if err != nil {
+			c.logger.DebugContext(
+				ctx,
+				"Failed to parse 32-bit integer number",
+				slog.String("text", text),
+				slog.Any("error", err),
+			)
+			issue = fmt.Sprintf("value '%s' isn't a valid 32-bit integer", text)
+			return
+		}
+		wrapper = &wrapperspb.Int32Value{Value: int32(value)}
+	case "type.googleapis.com/google.protobuf.Int64Value":
+		text = strings.TrimSpace(text)
+		var value int64
+		value, err := strconv.ParseInt(text, 10, 64)
+		if err != nil {
+			c.logger.DebugContext(
+				ctx,
+				"Failed to parse 64-bit integer number",
+				slog.String("text", text),
+				slog.Any("error", err),
+			)
+			issue = fmt.Sprintf("value '%s' isn't a valid 64-bit integer", text)
+			return
+		}
+		wrapper = &wrapperspb.Int64Value{Value: value}
+	case "type.googleapis.com/google.protobuf.FloatValue":
+		text = strings.TrimSpace(text)
+		var value float64
+		value, err := strconv.ParseFloat(text, 32)
+		if err != nil {
+			c.logger.DebugContext(
+				ctx,
+				"Failed to parse 32-bit floating point number",
+				slog.String("text", text),
+				slog.Any("error", err),
+			)
+			issue = fmt.Sprintf("value '%s' isn't a valid 32-bit floating point number", text)
+			return
+		}
+		wrapper = &wrapperspb.FloatValue{Value: float32(value)}
+	case "type.googleapis.com/google.protobuf.DoubleValue":
+		text = strings.TrimSpace(text)
+		var value float64
+		value, err := strconv.ParseFloat(text, 64)
+		if err != nil {
+			c.logger.DebugContext(
+				ctx,
+				"Failed to parse 64-bit floating point number",
+				slog.String("text", text),
+				slog.Any("error", err),
+			)
+			issue = fmt.Sprintf("value '%s' isn't a valid 64-bit floating point numberw", text)
+			return
+		}
+		wrapper = &wrapperspb.DoubleValue{Value: value}
+	case "type.googleapis.com/google.protobuf.BytesValue":
+		wrapper = &wrapperspb.BytesValue{Value: []byte(text)}
+	case "type.googleapis.com/google.protobuf.Timestamp":
+		text = strings.TrimSpace(text)
+		var value time.Time
+		value, err := time.Parse(time.RFC3339, text)
+		if err != nil {
+			c.logger.DebugContext(
+				ctx,
+				"Failed to parse RFC3339 timestamp",
+				slog.String("text", text),
+				slog.Any("error", err),
+			)
+			issue = fmt.Sprintf("value '%s' isn't a valid RFC3339 timestamp", text)
+			return
+		}
+		wrapper = timestamppb.New(value)
+	case "type.googleapis.com/google.protobuf.Duration":
+		var value time.Duration
+		value, err := time.ParseDuration(text)
+		if err != nil {
+			c.logger.DebugContext(
+				ctx,
+				"Failed to parse duration",
+				slog.String("text", text),
+				slog.Any("error", err),
+			)
+			issue = fmt.Sprintf("value '%s' isn't a valid duration", text)
+			return
+		}
+		wrapper = durationpb.New(value)
+	default:
+		issue = fmt.Sprintf("flag has is of an unsupported type '%s'", kind)
+		return
+	}
+	if issue != "" {
+		return
+	}
+	result, err := anypb.New(wrapper)
+	if err != nil {
+		c.logger.DebugContext(
+			ctx,
+			"Failed to create protobuf value for template parameter",
+			slog.String("text", text),
+			slog.String("kind", kind),
+			slog.Any("error", err),
+		)
+		issue = fmt.Sprintf("Failed to create protobuf value for template parameter: %v", err)
+		return
+	}
 	return
 }
 
@@ -440,6 +727,9 @@ func (c *runnerContext) buildSpec(templateID string,
 	if c.args.memoryGiB > 0 {
 		spec.MemoryGib = new(c.args.memoryGiB)
 	}
+	if c.args.instanceType != "" {
+		spec.InstanceType = new(c.args.instanceType)
+	}
 	if c.args.sshKey != "" {
 		spec.SshKey = new(c.args.sshKey)
 	}
@@ -461,37 +751,30 @@ func (c *runnerContext) buildSpec(templateID string,
 	if c.args.userData != "" {
 		spec.UserData = new(c.args.userData)
 	}
+	if c.args.windows {
+		spec.IsWindows = new(true)
+	}
 	if err := c.applyNetworkingFlags(&spec); err != nil {
 		return nil, err
 	}
 	return spec.Build(), nil
 }
 
-// applyNetworkingFlags sets spec.network_attachments or deprecated subnet / security_groups from CLI flags.
+// applyNetworkingFlags sets spec.network_attachments from CLI flags.
 func (c *runnerContext) applyNetworkingFlags(spec *publicv1.ComputeInstanceSpec_builder) error {
-	hasAttachments := len(c.args.networkAttachments) > 0
-	hasLegacy := c.args.subnet != "" || len(c.args.securityGroups) > 0
-	if hasAttachments && hasLegacy {
-		return fmt.Errorf("do not combine --network-attachment with --subnet or --security-group")
-	}
-	if hasAttachments {
-		attachments := make([]*publicv1.NetworkAttachment, 0, len(c.args.networkAttachments))
-		for _, raw := range c.args.networkAttachments {
-			na, err := parseNetworkAttachmentFlag(raw)
-			if err != nil {
-				return err
-			}
-			attachments = append(attachments, na)
-		}
-		spec.NetworkAttachments = attachments
+	if len(c.args.networkAttachments) == 0 {
 		return nil
 	}
-	if c.args.subnet != "" {
-		spec.Subnet = new(c.args.subnet)
+
+	attachments := make([]*publicv1.NetworkAttachment, 0, len(c.args.networkAttachments))
+	for _, raw := range c.args.networkAttachments {
+		na, err := parseNetworkAttachmentFlag(raw)
+		if err != nil {
+			return err
+		}
+		attachments = append(attachments, na)
 	}
-	if len(c.args.securityGroups) > 0 {
-		spec.SecurityGroups = append([]string(nil), c.args.securityGroups...)
-	}
+	spec.NetworkAttachments = attachments
 	return nil
 }
 
@@ -524,7 +807,7 @@ func extractSecurityGroupListSuffix(s string) (prefix string, groups []string, o
 func parseMainSubnetOnly(main string) (string, error) {
 	main = strings.TrimSpace(strings.TrimSuffix(main, ","))
 	if main == "" {
-		return "", fmt.Errorf("--network-attachment must include a subnet or subnet=...")
+		return "", fmt.Errorf("--network-attachment must include a subnet or subnet=<id>")
 	}
 	if !strings.Contains(main, "=") {
 		return main, nil
@@ -596,6 +879,9 @@ func (c *runnerContext) buildSpecFromCatalogItem(catalogItemID string) (*publicv
 	if c.args.memoryGiB > 0 {
 		spec.MemoryGib = new(c.args.memoryGiB)
 	}
+	if c.args.instanceType != "" {
+		spec.InstanceType = new(c.args.instanceType)
+	}
 	if c.args.sshKey != "" {
 		spec.SshKey = new(c.args.sshKey)
 	}
@@ -617,52 +903,11 @@ func (c *runnerContext) buildSpecFromCatalogItem(catalogItemID string) (*publicv
 	if c.args.userData != "" {
 		spec.UserData = new(c.args.userData)
 	}
-	return spec.Build(), nil
-}
-
-func (c *runnerContext) buildClassBasedSpec() (*publicv1.ComputeInstanceSpec, error) {
-	spec := publicv1.ComputeInstanceSpec_builder{
-		ComputeInstanceClass: proto.String(c.args.class),
+	if c.args.windows {
+		spec.IsWindows = new(true)
 	}
-	if c.args.region != "" {
-		spec.Region = proto.String(c.args.region)
-	}
-	if c.args.imageRef != "" {
-		spec.ImageRef = proto.String(c.args.imageRef)
-	} else if c.args.imageSourceRef != "" {
-		spec.Image = publicv1.ComputeInstanceImage_builder{
-			SourceType: c.args.imageSourceType,
-			SourceRef:  c.args.imageSourceRef,
-		}.Build()
-	}
-	if len(c.args.sshKeyRefs) > 0 {
-		spec.SshKeyRefs = c.args.sshKeyRefs
-	} else if c.args.sshKey != "" {
-		spec.SshKey = proto.String(c.args.sshKey)
-	}
-	if c.args.cores > 0 {
-		spec.Cores = proto.Int32(c.args.cores)
-	}
-	if c.args.memoryGiB > 0 {
-		spec.MemoryGib = proto.Int32(c.args.memoryGiB)
-	}
-	if c.args.bootDiskSizeGiB > 0 {
-		spec.BootDisk = publicv1.ComputeInstanceDisk_builder{
-			SizeGib: c.args.bootDiskSizeGiB,
-		}.Build()
-	}
-	if len(c.args.additionalDisks) > 0 {
-		disks, err := parseAdditionalDisks(c.args.additionalDisks)
-		if err != nil {
-			return nil, err
-		}
-		spec.AdditionalDisks = disks
-	}
-	if c.args.runStrategy != "" {
-		spec.RunStrategy = proto.String(c.args.runStrategy)
-	}
-	if c.args.userData != "" {
-		spec.UserData = proto.String(c.args.userData)
+	if err := c.applyNetworkingFlags(&spec); err != nil {
+		return nil, err
 	}
 	return spec.Build(), nil
 }
@@ -696,8 +941,46 @@ type validTemplateParameter struct {
 	Title string
 }
 
+// validTemplateParameters returns the list of valid template parameters for the given template.
 func (c *runnerContext) validTemplateParameters(template *publicv1.ComputeInstanceTemplate) []validTemplateParameter {
-	return []validTemplateParameter{}
+	// Prepare the results:
+	results := []validTemplateParameter{}
+	for _, parameter := range template.GetParameters() {
+		result := validTemplateParameter{
+			Name:  parameter.GetName(),
+			Title: parameter.GetTitle(),
+		}
+		switch parameter.GetType() {
+		case "type.googleapis.com/google.protobuf.StringValue":
+			result.Type = "string"
+		case "type.googleapis.com/google.protobuf.BoolValue":
+			result.Type = "boolean"
+		case "type.googleapis.com/google.protobuf.Int32Value":
+			result.Type = "int32"
+		case "type.googleapis.com/google.protobuf.Int64Value":
+			result.Type = "int64"
+		case "type.googleapis.com/google.protobuf.FloatValue":
+			result.Type = "float"
+		case "type.googleapis.com/google.protobuf.DoubleValue":
+			result.Type = "double"
+		case "type.googleapis.com/google.protobuf.BytesValue":
+			result.Type = "bytes"
+		case "type.googleapis.com/google.protobuf.Timestamp":
+			result.Type = "timestamp"
+		case "type.googleapis.com/google.protobuf.Duration":
+			result.Type = "duration"
+		default:
+			result.Type = "unknown"
+		}
+		results = append(results, result)
+	}
+
+	// Sort the result by name so that the output will be predictable:
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Name < results[j].Name
+	})
+
+	return results
 }
 
 const shortHelp = `Create a compute instance.`
@@ -739,6 +1022,11 @@ const memoryFlagHelp = `
 _SIZE_ - Memory size in GiB.
 `
 
+const instanceTypeFlagHelp = `
+_NAME_ - Instance type name. Mutually exclusive with
+{{ bt }}--cores{{ bt }} and {{ bt }}--memory-gib{{ bt }}.
+`
+
 const imageFlagHelp = `
 _URL_ - Image reference, for example an OCI image URL.
 `
@@ -770,28 +1058,13 @@ _DATA_ - User data for the compute instance, for example cloud-init or
 ignition configuration.
 `
 
-const subnetFlagHelp = `
-_ID_ - Subnet ID for the primary NIC.
-
-This flag is deprecated. Use {{ bt }}--network-attachment{{ bt }}
-instead.
-`
-
-const securityGroupFlagHelp = `
-_ID_ - Security group ID applied together with
-{{ bt }}--subnet{{ bt }}. Can be specified multiple times.
-
-This flag is deprecated. Use {{ bt }}--network-attachment{{ bt }}
-instead.
-`
-
 const networkAttachmentFlagHelp = `
 _SPEC_ - Per-NIC network attachment. The value can be a plain subnet ID, or a
 comma-separated specification in the format
 {{ bt }}subnet=ID[,security-groups=ID,ID...]{{ bt }}. Can be
 specified multiple times to attach multiple NICs.
+`
 
-This flag is incompatible with the deprecated
-{{ bt }}--subnet{{ bt }} and
-{{ bt }}--security-group{{ bt }} flags.
+const windowsFlagHelp = `
+_[BOOLEAN]_ - Create a Windows VM. Defaults to {{ bt }}false{{ bt }} (Linux VM).
 `
